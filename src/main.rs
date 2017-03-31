@@ -14,6 +14,8 @@ pub use point::Point;
 pub use vector::Vector3;
 pub use color::Color;
 
+const SHADOW_BIAS: f64 = 1e-13;
+
 pub struct Sphere {
     pub center: Point,
     pub radius: f64,
@@ -217,8 +219,19 @@ pub fn get_color(scene: &Scene, ray: &Ray, intersection: &Intersection) -> Color
     let hit_point = ray.origin + (ray.direction * intersection.distance);
     let surface_normal = intersection.body.surface_normal(&hit_point);
     let direction_to_light = -scene.light.direction.normalize();
-    let light_power = (surface_normal.dot(&direction_to_light) as f32).max(0.0) *
-                      scene.light.intensity;
+
+    // Calculate shadow by casting a ray from the hit point to the light and see if it's occluded
+    // by a body.
+    // Place origin ever so slightly above the hitpoint to avoid floating point errors where the
+    // origin is inside the body itself, so the ray intersects with itself.
+    let shadow_ray = Ray {
+        origin: hit_point + (surface_normal * SHADOW_BIAS),
+        direction: direction_to_light,
+    };
+    let in_light = scene.trace(&shadow_ray).is_none();
+    let light_intensity = if in_light { scene.light.intensity } else { 0.0 };
+
+    let light_power = (surface_normal.dot(&direction_to_light) as f32).max(0.0) * light_intensity;
     let light_reflected = intersection.body.albedo() / std::f32::consts::PI;
     let color = intersection.body.color().clone() * scene.light.color.clone() * light_power *
                 light_reflected;
@@ -276,6 +289,20 @@ fn main() {
                                   }),
                      Body::Sphere(Sphere {
                                       center: Point {
+                                          x: 0.0,
+                                          y: 3.7,
+                                          z: -5.2,
+                                      },
+                                      radius: 2.0,
+                                      color: Color {
+                                          red: 1.0,
+                                          green: 1.0,
+                                          blue: 0.8,
+                                      },
+                                      albedo: 0.5,
+                                  }),
+                     Body::Sphere(Sphere {
+                                      center: Point {
                                           x: 2.0,
                                           y: 1.0,
                                           z: -8.0,
@@ -290,9 +317,9 @@ fn main() {
                                   })],
         light: Light {
             direction: Vector3 {
-                x: -0.2,
+                x: 0.4,
                 y: -1.0,
-                z: -0.5,
+                z: -0.9,
             },
             color: Color {
                 red: 1.0,

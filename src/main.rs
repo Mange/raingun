@@ -81,7 +81,7 @@ pub struct Scene {
     pub height: u32,
     pub fov: f64,
     pub bodies: Vec<Body>,
-    pub light: Light,
+    pub lights: Vec<Light>,
 }
 
 impl Scene {
@@ -218,24 +218,33 @@ impl<'a> Intersection<'a> {
 pub fn get_color(scene: &Scene, ray: &Ray, intersection: &Intersection) -> Color {
     let hit_point = ray.origin + (ray.direction * intersection.distance);
     let surface_normal = intersection.body.surface_normal(&hit_point);
-    let direction_to_light = -scene.light.direction.normalize();
 
-    // Calculate shadow by casting a ray from the hit point to the light and see if it's occluded
-    // by a body.
-    // Place origin ever so slightly above the hitpoint to avoid floating point errors where the
-    // origin is inside the body itself, so the ray intersects with itself.
-    let shadow_ray = Ray {
-        origin: hit_point + (surface_normal * SHADOW_BIAS),
-        direction: direction_to_light,
-    };
-    let in_light = scene.trace(&shadow_ray).is_none();
-    let light_intensity = if in_light { scene.light.intensity } else { 0.0 };
+    let mut final_color = Color::black();
+    let body_color = intersection.body.color();
 
-    let light_power = (surface_normal.dot(&direction_to_light) as f32).max(0.0) * light_intensity;
-    let light_reflected = intersection.body.albedo() / std::f32::consts::PI;
-    let color = intersection.body.color().clone() * scene.light.color.clone() * light_power *
-                light_reflected;
-    color.clamp()
+    for light in &scene.lights {
+        let direction_to_light = -light.direction.normalize();
+
+        // Calculate shadow by casting a ray from the hit point to the light and see if it's occluded
+        // by a body.
+        // Place origin ever so slightly above the hitpoint to avoid floating point errors where the
+        // origin is inside the body itself, so the ray intersects with itself.
+        let shadow_ray = Ray {
+            origin: hit_point + (surface_normal * SHADOW_BIAS),
+            direction: direction_to_light,
+        };
+        let in_light = scene.trace(&shadow_ray).is_none();
+        let light_intensity = if in_light { light.intensity } else { 0.0 };
+
+        let light_power = (surface_normal.dot(&direction_to_light) as f32).max(0.0) *
+                          light_intensity;
+        let light_reflected = intersection.body.albedo() / std::f32::consts::PI;
+        let light_color = light.color * light_power * light_reflected;
+
+        final_color = final_color + (body_color * light_color);
+    }
+
+    final_color.clamp()
 }
 
 pub fn render(scene: &Scene) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
@@ -315,19 +324,32 @@ fn main() {
                                       },
                                       albedo: 0.35,
                                   })],
-        light: Light {
-            direction: Vector3 {
-                x: 0.4,
-                y: -1.0,
-                z: -0.9,
-            },
-            color: Color {
-                red: 1.0,
-                green: 1.0,
-                blue: 0.7,
-            },
-            intensity: 7.0,
-        },
+        lights: vec![Light {
+                         direction: Vector3 {
+                             x: 0.4,
+                             y: -1.0,
+                             z: -0.9,
+                         },
+                         color: Color {
+                             red: 1.0,
+                             green: 1.0,
+                             blue: 0.7,
+                         },
+                         intensity: 7.0,
+                     },
+                     Light {
+                         direction: Vector3 {
+                             x: 1.0,
+                             y: -0.1,
+                             z: 0.0,
+                         },
+                         color: Color {
+                             red: 0.9,
+                             blue: 0.7,
+                             green: 0.0,
+                         },
+                         intensity: 5.0,
+                     }],
     };
 
     let start = PreciseTime::now();

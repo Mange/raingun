@@ -1,4 +1,4 @@
-use std::ops::Mul;
+use std::ops::{Add, Mul};
 
 use image::{Pixel, Rgba};
 
@@ -10,6 +10,14 @@ pub struct Color {
 }
 
 impl Color {
+    pub fn black() -> Color {
+        Color {
+            red: 0.0,
+            green: 0.0,
+            blue: 0.0,
+        }
+    }
+
     pub fn rgba(&self) -> Rgba<u8> {
         Rgba::from_channels((self.red * 255.0) as u8,
                             (self.green * 255.0) as u8,
@@ -26,6 +34,18 @@ impl Color {
     }
 }
 
+impl Add for Color {
+    type Output = Color;
+
+    fn add(self, other: Color) -> Color {
+        Color {
+            red: self.red + other.red,
+            green: self.green + other.green,
+            blue: self.blue + other.blue,
+        }
+    }
+}
+
 impl Mul for Color {
     type Output = Color;
 
@@ -35,6 +55,22 @@ impl Mul for Color {
             green: self.green * other.green,
             blue: self.blue * other.blue,
         }
+    }
+}
+
+impl<'a> Mul for &'a Color {
+    type Output = Color;
+
+    fn mul(self, other: &'a Color) -> Color {
+        self * (*other)
+    }
+}
+
+impl<'a> Mul<Color> for &'a Color {
+    type Output = Color;
+
+    fn mul(self, other: Color) -> Color {
+        (*self) * other
     }
 }
 

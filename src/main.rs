@@ -111,6 +111,13 @@ impl Light {
             Light::Spherical(ref spherical) => (spherical.position - point).normalize(),
         }
     }
+
+    pub fn distance(&self, point: &Point) -> f64 {
+        match *self {
+            Light::Directional(_) => std::f64::INFINITY,
+            Light::Spherical(ref spherical) => (spherical.position - point).length(),
+        }
+    }
 }
 
 pub struct Scene {
@@ -270,7 +277,13 @@ pub fn get_color(scene: &Scene, ray: &Ray, intersection: &Intersection) -> Color
             origin: hit_point + (surface_normal * SHADOW_BIAS),
             direction: direction_to_light,
         };
-        let in_light = scene.trace(&shadow_ray).is_none();
+        let shadow_intersection = scene.trace(&shadow_ray);
+
+        let in_light = match shadow_intersection {
+            None => true,
+            Some(intersection) => intersection.distance > light.distance(&hit_point),
+        };
+
         let light_intensity = if in_light {
             light.intensity(&hit_point)
         } else {

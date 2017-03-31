@@ -4,6 +4,9 @@ use std::path::Path;
 extern crate image;
 use image::{DynamicImage, GenericImage, Pixel, Rgba};
 
+extern crate time;
+use time::PreciseTime;
+
 mod point;
 mod vector;
 
@@ -111,8 +114,7 @@ pub fn render(scene: &Scene) -> DynamicImage {
     image
 }
 
-#[test]
-fn it_renders_scene() {
+fn main() {
     let scene = Scene {
         width: 800,
         height: 600,
@@ -132,18 +134,16 @@ fn it_renders_scene() {
         },
     };
 
+    let start = PreciseTime::now();
     let image: DynamicImage = render(&scene);
-    assert_eq!(scene.width, image.width());
-    assert_eq!(scene.height, image.height());
+    let end = PreciseTime::now();
+
+    println!("Took {} μseconds to render scene",
+             start.to(end).num_microseconds().unwrap());
 
     let ref mut output_file =
         File::create(&Path::new("test1.png")).expect("Could not create output file");
     image
         .save(output_file, image::PNG)
         .expect("Could not encode image");
-}
-
-
-fn main() {
-    println!("Hello, world!");
 }

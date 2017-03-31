@@ -85,3 +85,11 @@ impl Mul<f32> for Color {
         }
     }
 }
+
+impl<'a> Mul<f32> for &'a Color {
+    type Output = Color;
+
+    fn mul(self, other: f32) -> Color {
+        (*self) * other
+    }
+}

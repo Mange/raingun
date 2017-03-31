@@ -41,3 +41,11 @@ impl Sub<Point> for Point {
         }
     }
 }
+
+impl<'a> Sub<&'a Point> for Point {
+    type Output = Vector3;
+
+    fn sub(self, other: &'a Point) -> Vector3 {
+        self - (*other)
+    }
+}

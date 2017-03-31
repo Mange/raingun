@@ -70,10 +70,47 @@ impl Body {
     }
 }
 
-pub struct Light {
+pub struct DirectionalLight {
     pub direction: Vector3,
     pub color: Color,
     pub intensity: f32,
+}
+
+pub struct SphericalLight {
+    pub position: Point,
+    pub color: Color,
+    pub intensity: f32,
+}
+
+pub enum Light {
+    Directional(DirectionalLight),
+    Spherical(SphericalLight),
+}
+
+impl Light {
+    pub fn color(&self) -> &Color {
+        match *self {
+            Light::Directional(ref directional) => &directional.color,
+            Light::Spherical(ref spherical) => &spherical.color,
+        }
+    }
+
+    pub fn intensity(&self, hit_point: &Point) -> f32 {
+        match *self {
+            Light::Directional(ref directional) => directional.intensity,
+            Light::Spherical(ref spherical) => {
+                let radius_squared = (spherical.position - hit_point).norm() as f32;
+                spherical.intensity / (4.0 * std::f32::consts::PI * radius_squared)
+            }
+        }
+    }
+
+    pub fn direction_from(&self, point: &Point) -> Vector3 {
+        match *self {
+            Light::Directional(ref directional) => (-directional.direction).normalize(),
+            Light::Spherical(ref spherical) => (spherical.position - point).normalize(),
+        }
+    }
 }
 
 pub struct Scene {
@@ -223,7 +260,7 @@ pub fn get_color(scene: &Scene, ray: &Ray, intersection: &Intersection) -> Color
     let body_color = intersection.body.color();
 
     for light in &scene.lights {
-        let direction_to_light = -light.direction.normalize();
+        let direction_to_light = light.direction_from(&hit_point);
 
         // Calculate shadow by casting a ray from the hit point to the light and see if it's occluded
         // by a body.
@@ -234,12 +271,16 @@ pub fn get_color(scene: &Scene, ray: &Ray, intersection: &Intersection) -> Color
             direction: direction_to_light,
         };
         let in_light = scene.trace(&shadow_ray).is_none();
-        let light_intensity = if in_light { light.intensity } else { 0.0 };
+        let light_intensity = if in_light {
+            light.intensity(&hit_point)
+        } else {
+            0.0
+        };
 
         let light_power = (surface_normal.dot(&direction_to_light) as f32).max(0.0) *
                           light_intensity;
         let light_reflected = intersection.body.albedo() / std::f32::consts::PI;
-        let light_color = light.color * light_power * light_reflected;
+        let light_color = light.color() * light_power * light_reflected;
 
         final_color = final_color + (body_color * light_color);
     }
@@ -324,32 +365,32 @@ fn main() {
                                       },
                                       albedo: 0.35,
                                   })],
-        lights: vec![Light {
-                         direction: Vector3 {
-                             x: 0.4,
-                             y: -1.0,
-                             z: -0.9,
-                         },
-                         color: Color {
-                             red: 1.0,
-                             green: 1.0,
-                             blue: 0.7,
-                         },
-                         intensity: 7.0,
-                     },
-                     Light {
-                         direction: Vector3 {
-                             x: 1.0,
-                             y: -0.1,
-                             z: 0.0,
-                         },
-                         color: Color {
-                             red: 0.9,
-                             blue: 0.7,
-                             green: 0.0,
-                         },
-                         intensity: 5.0,
-                     }],
+        lights: vec![Light::Directional(DirectionalLight {
+                                            direction: Vector3 {
+                                                x: 0.4,
+                                                y: -1.0,
+                                                z: -0.9,
+                                            },
+                                            color: Color {
+                                                red: 1.0,
+                                                green: 1.0,
+                                                blue: 0.7,
+                                            },
+                                            intensity: 7.0,
+                                        }),
+                     Light::Spherical(SphericalLight {
+                                          position: Point {
+                                              x: -6.0,
+                                              y: 3.2,
+                                              z: -5.0,
+                                          },
+                                          color: Color {
+                                              red: 0.9,
+                                              blue: 0.7,
+                                              green: 0.0,
+                                          },
+                                          intensity: 4000.0,
+                                      })],
     };
 
     let start = PreciseTime::now();

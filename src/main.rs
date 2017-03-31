@@ -37,7 +37,16 @@ pub struct Scene {
     pub width: u32,
     pub height: u32,
     pub fov: f64,
-    pub sphere: Sphere,
+    pub spheres: Vec<Sphere>,
+}
+
+impl Scene {
+    pub fn trace(&self, ray: &Ray) -> Option<Intersection> {
+        self.spheres
+            .iter()
+            .filter_map(|s| s.intersect(ray).map(|d| Intersection::new(d, s)))
+            .min_by(|i1, i2| i1.distance.partial_cmp(&i2.distance).unwrap())
+    }
 }
 
 pub struct Ray {
@@ -73,17 +82,25 @@ impl Ray {
 }
 
 trait Intersectable {
-    fn intersect(&self, ray: &Ray) -> bool;
+    fn intersect(&self, ray: &Ray) -> Option<f64>;
 }
 
 impl Intersectable for Sphere {
-    fn intersect(&self, ray: &Ray) -> bool {
+    fn intersect(&self, ray: &Ray) -> Option<f64> {
+        // How to determine if we intersect:
+        //
         // Draw a line between origin and the center of the sphere.
         // Then draw a line along the ray.
         // Treat those two lines as sides of a right-angled triangle (hypothenuse and adjacent
         // side), and calculate the third line. If this third line is longer than the radius of the
         // sphere the ray does not intersect with the sphere. If the line if shorter than the
         // radius, then the ray must pass within the sphere.
+        //
+        // How to calculate the distance to the intersection:
+        // We know the centerpoint of the circle, as well as the radius. Intersection always
+        // happens on the edge (e.g. at the radius), so we can calculate a triangle between the
+        // centerpoint, the intersection point and the distance between the centerpoint and the ray
+        // (that is the "opposite" line calculated in step 1).
 
         let hypothenuse = self.center - ray.origin;
         let adjacent_squared = hypothenuse.dot(&ray.direction);
@@ -91,7 +108,39 @@ impl Intersectable for Sphere {
         let opposite_squared = hypothenuse.dot(&hypothenuse) -
                                (adjacent_squared * adjacent_squared);
 
-        opposite_squared < (self.radius * self.radius)
+        let radius_squared = self.radius * self.radius;
+
+        if opposite_squared > radius_squared {
+            return None;
+        }
+
+        // Calculate hypotenuse length between triangle centerpoint, ray that is inside sphere and
+        // intersection point.
+        let thickness = (radius_squared - opposite_squared).sqrt();
+
+        // Full disclosure: I have no idea what is happening here. I cannot figure it out.
+        let distance0 = adjacent_squared - thickness;
+        let distance1 = adjacent_squared + thickness;
+
+        if distance0 < 0.0 && distance1 < 0.0 {
+            None
+        } else {
+            Some(distance0.min(distance1))
+        }
+    }
+}
+
+pub struct Intersection<'a> {
+    pub distance: f64,
+    pub object: &'a Sphere,
+}
+
+impl<'a> Intersection<'a> {
+    pub fn new<'b>(distance: f64, object: &'b Sphere) -> Intersection<'b> {
+        Intersection {
+            distance: distance,
+            object: object,
+        }
     }
 }
 
@@ -99,8 +148,8 @@ pub fn render(scene: &Scene) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     let mut image = ImageBuffer::new(scene.width, scene.height);
     for (x, y, pixel) in image.enumerate_pixels_mut() {
         let ray = Ray::create_prime(x, y, scene);
-        if scene.sphere.intersect(&ray) {
-            *pixel = scene.sphere.color.rgba();
+        if let Some(Intersection { object, .. }) = scene.trace(&ray) {
+            *pixel = object.color.rgba();
         }
     }
 
@@ -112,19 +161,32 @@ fn main() {
         width: 800,
         height: 600,
         fov: 90.0,
-        sphere: Sphere {
-            center: Point {
-                x: 0.0,
-                y: 0.0,
-                z: -5.0,
-            },
-            radius: 1.0,
-            color: Color {
-                red: 0.1,
-                green: 1.0,
-                blue: 0.8,
-            },
-        },
+        spheres: vec![Sphere {
+                          center: Point {
+                              x: 0.0,
+                              y: 0.0,
+                              z: -5.0,
+                          },
+                          radius: 1.0,
+                          color: Color {
+                              red: 0.1,
+                              green: 1.0,
+                              blue: 0.8,
+                          },
+                      },
+                      Sphere {
+                          center: Point {
+                              x: 2.0,
+                              y: 1.0,
+                              z: -8.0,
+                          },
+                          radius: 2.2,
+                          color: Color {
+                              red: 1.0,
+                              green: 0.0,
+                              blue: 0.0,
+                          },
+                      }],
     };
 
     let start = PreciseTime::now();

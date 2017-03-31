@@ -1,8 +1,7 @@
-use std::fs::File;
 use std::path::Path;
 
 extern crate image;
-use image::{DynamicImage, GenericImage, Pixel, Rgba};
+use image::{ImageBuffer, Pixel, Rgba};
 
 extern crate time;
 use time::PreciseTime;
@@ -96,18 +95,12 @@ impl Intersectable for Sphere {
     }
 }
 
-pub fn render(scene: &Scene) -> DynamicImage {
-    let mut image = DynamicImage::new_rgb8(scene.width, scene.height);
-    let black = Rgba::from_channels(0, 0, 0, 0);
-
-    for x in 0..scene.width {
-        for y in 0..scene.height {
-            let ray = Ray::create_prime(x, y, scene);
-            if scene.sphere.intersect(&ray) {
-                image.put_pixel(x, y, scene.sphere.color.rgba());
-            } else {
-                image.put_pixel(x, y, black);
-            }
+pub fn render(scene: &Scene) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
+    let mut image = ImageBuffer::new(scene.width, scene.height);
+    for (x, y, pixel) in image.enumerate_pixels_mut() {
+        let ray = Ray::create_prime(x, y, scene);
+        if scene.sphere.intersect(&ray) {
+            *pixel = scene.sphere.color.rgba();
         }
     }
 
@@ -135,15 +128,13 @@ fn main() {
     };
 
     let start = PreciseTime::now();
-    let image: DynamicImage = render(&scene);
+    let image = render(&scene);
     let end = PreciseTime::now();
 
     println!("Took {} μseconds to render scene",
              start.to(end).num_microseconds().unwrap());
 
-    let ref mut output_file =
-        File::create(&Path::new("test1.png")).expect("Could not create output file");
     image
-        .save(output_file, image::PNG)
+        .save(&Path::new("test1.png"))
         .expect("Could not encode image");
 }

@@ -1,47 +1,48 @@
 use std::path::Path;
 
 extern crate image;
-use image::{ImageBuffer, Pixel, Rgba};
+use image::{ImageBuffer, Rgba};
 
 extern crate time;
 use time::PreciseTime;
 
 mod point;
 mod vector;
+mod color;
 
 pub use point::Point;
 pub use vector::Vector3;
-
-pub struct Color {
-    pub red: f32,
-    pub green: f32,
-    pub blue: f32,
-}
-
-impl Color {
-    pub fn rgba(&self) -> Rgba<u8> {
-        Rgba::from_channels((self.red * 255.0) as u8,
-                            (self.green * 255.0) as u8,
-                            (self.blue * 255.0) as u8,
-                            255)
-    }
-}
+pub use color::Color;
 
 pub struct Sphere {
     pub center: Point,
     pub radius: f64,
     pub color: Color,
+    pub albedo: f32,
 }
 
 pub struct Plane {
     pub origin: Point,
     pub normal: Vector3,
     pub color: Color,
+    pub albedo: f32,
 }
 
 pub enum Body {
     Sphere(Sphere),
     Plane(Plane),
+}
+
+impl Sphere {
+    pub fn surface_normal(&self, hit_point: &Point) -> Vector3 {
+        (*hit_point - self.center).normalize()
+    }
+}
+
+impl Plane {
+    pub fn surface_normal(&self, _hit_point: &Point) -> Vector3 {
+        -self.normal
+    }
 }
 
 impl Body {
@@ -51,6 +52,26 @@ impl Body {
             Body::Plane(ref plane) => &plane.color,
         }
     }
+
+    pub fn surface_normal(&self, hit_point: &Point) -> Vector3 {
+        match *self {
+            Body::Sphere(ref sphere) => sphere.surface_normal(hit_point),
+            Body::Plane(ref plane) => plane.surface_normal(hit_point),
+        }
+    }
+
+    pub fn albedo(&self) -> f32 {
+        match *self {
+            Body::Sphere(ref sphere) => sphere.albedo,
+            Body::Plane(ref plane) => plane.albedo,
+        }
+    }
+}
+
+pub struct Light {
+    pub direction: Vector3,
+    pub color: Color,
+    pub intensity: f32,
 }
 
 pub struct Scene {
@@ -58,6 +79,7 @@ pub struct Scene {
     pub height: u32,
     pub fov: f64,
     pub bodies: Vec<Body>,
+    pub light: Light,
 }
 
 impl Scene {
@@ -191,12 +213,24 @@ impl<'a> Intersection<'a> {
     }
 }
 
+pub fn get_color(scene: &Scene, ray: &Ray, intersection: &Intersection) -> Color {
+    let hit_point = ray.origin + (ray.direction * intersection.distance);
+    let surface_normal = intersection.body.surface_normal(&hit_point);
+    let direction_to_light = -scene.light.direction.normalize();
+    let light_power = (surface_normal.dot(&direction_to_light) as f32).max(0.0) *
+                      scene.light.intensity;
+    let light_reflected = intersection.body.albedo() / std::f32::consts::PI;
+    let color = intersection.body.color().clone() * scene.light.color.clone() * light_power *
+                light_reflected;
+    color.clamp()
+}
+
 pub fn render(scene: &Scene) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     let mut image = ImageBuffer::new(scene.width, scene.height);
     for (x, y, pixel) in image.enumerate_pixels_mut() {
         let ray = Ray::create_prime(x, y, scene);
-        if let Some(Intersection { body, .. }) = scene.trace(&ray) {
-            *pixel = body.color().rgba();
+        if let Some(intersection) = scene.trace(&ray) {
+            *pixel = get_color(scene, &ray, &intersection).rgba();
         }
     }
 
@@ -224,6 +258,7 @@ fn main() {
                                          green: 0.7,
                                          blue: 0.7,
                                      },
+                                     albedo: 0.15,
                                  }),
                      Body::Sphere(Sphere {
                                       center: Point {
@@ -237,6 +272,7 @@ fn main() {
                                           green: 1.0,
                                           blue: 0.8,
                                       },
+                                      albedo: 0.6,
                                   }),
                      Body::Sphere(Sphere {
                                       center: Point {
@@ -250,7 +286,21 @@ fn main() {
                                           green: 0.0,
                                           blue: 0.0,
                                       },
+                                      albedo: 0.35,
                                   })],
+        light: Light {
+            direction: Vector3 {
+                x: -0.2,
+                y: -1.0,
+                z: -0.5,
+            },
+            color: Color {
+                red: 1.0,
+                green: 1.0,
+                blue: 0.7,
+            },
+            intensity: 7.0,
+        },
     };
 
     let start = PreciseTime::now();

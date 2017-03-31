@@ -33,18 +33,38 @@ pub struct Sphere {
     pub color: Color,
 }
 
+pub struct Plane {
+    pub origin: Point,
+    pub normal: Vector3,
+    pub color: Color,
+}
+
+pub enum Body {
+    Sphere(Sphere),
+    Plane(Plane),
+}
+
+impl Body {
+    pub fn color(&self) -> &Color {
+        match *self {
+            Body::Sphere(ref sphere) => &sphere.color,
+            Body::Plane(ref plane) => &plane.color,
+        }
+    }
+}
+
 pub struct Scene {
     pub width: u32,
     pub height: u32,
     pub fov: f64,
-    pub spheres: Vec<Sphere>,
+    pub bodies: Vec<Body>,
 }
 
 impl Scene {
     pub fn trace(&self, ray: &Ray) -> Option<Intersection> {
-        self.spheres
+        self.bodies
             .iter()
-            .filter_map(|s| s.intersect(ray).map(|d| Intersection::new(d, s)))
+            .filter_map(|body| body.intersect(ray).map(|d| Intersection::new(d, body)))
             .min_by(|i1, i2| i1.distance.partial_cmp(&i2.distance).unwrap())
     }
 }
@@ -130,16 +150,43 @@ impl Intersectable for Sphere {
     }
 }
 
+impl Intersectable for Plane {
+    fn intersect(&self, ray: &Ray) -> Option<f64> {
+        let normal = &self.normal;
+        let denominator = normal.dot(&ray.direction);
+        if denominator > 1e-6 {
+            let v = self.origin - ray.origin;
+            let distance = v.dot(&normal) / denominator;
+            if distance >= 0.0 {
+                Some(distance)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+}
+
+impl Intersectable for Body {
+    fn intersect(&self, ray: &Ray) -> Option<f64> {
+        match *self {
+            Body::Sphere(ref sphere) => sphere.intersect(ray),
+            Body::Plane(ref plane) => plane.intersect(ray),
+        }
+    }
+}
+
 pub struct Intersection<'a> {
     pub distance: f64,
-    pub object: &'a Sphere,
+    pub body: &'a Body,
 }
 
 impl<'a> Intersection<'a> {
-    pub fn new<'b>(distance: f64, object: &'b Sphere) -> Intersection<'b> {
+    pub fn new<'b>(distance: f64, body: &'b Body) -> Intersection<'b> {
         Intersection {
             distance: distance,
-            object: object,
+            body: body,
         }
     }
 }
@@ -148,8 +195,8 @@ pub fn render(scene: &Scene) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     let mut image = ImageBuffer::new(scene.width, scene.height);
     for (x, y, pixel) in image.enumerate_pixels_mut() {
         let ray = Ray::create_prime(x, y, scene);
-        if let Some(Intersection { object, .. }) = scene.trace(&ray) {
-            *pixel = object.color.rgba();
+        if let Some(Intersection { body, .. }) = scene.trace(&ray) {
+            *pixel = body.color().rgba();
         }
     }
 
@@ -161,32 +208,49 @@ fn main() {
         width: 800,
         height: 600,
         fov: 90.0,
-        spheres: vec![Sphere {
-                          center: Point {
-                              x: 0.0,
-                              y: 0.0,
-                              z: -5.0,
-                          },
-                          radius: 1.0,
-                          color: Color {
-                              red: 0.1,
-                              green: 1.0,
-                              blue: 0.8,
-                          },
-                      },
-                      Sphere {
-                          center: Point {
-                              x: 2.0,
-                              y: 1.0,
-                              z: -8.0,
-                          },
-                          radius: 2.2,
-                          color: Color {
-                              red: 1.0,
-                              green: 0.0,
-                              blue: 0.0,
-                          },
-                      }],
+        bodies: vec![Body::Plane(Plane {
+                                     origin: Point {
+                                         x: 0.0,
+                                         y: -2.0,
+                                         z: -5.0,
+                                     },
+                                     normal: Vector3 {
+                                         x: 0.0,
+                                         y: -1.0,
+                                         z: 0.0,
+                                     },
+                                     color: Color {
+                                         red: 0.7,
+                                         green: 0.7,
+                                         blue: 0.7,
+                                     },
+                                 }),
+                     Body::Sphere(Sphere {
+                                      center: Point {
+                                          x: 0.0,
+                                          y: 0.0,
+                                          z: -5.0,
+                                      },
+                                      radius: 1.0,
+                                      color: Color {
+                                          red: 0.1,
+                                          green: 1.0,
+                                          blue: 0.8,
+                                      },
+                                  }),
+                     Body::Sphere(Sphere {
+                                      center: Point {
+                                          x: 2.0,
+                                          y: 1.0,
+                                          z: -8.0,
+                                      },
+                                      radius: 2.2,
+                                      color: Color {
+                                          red: 1.0,
+                                          green: 0.0,
+                                          blue: 0.0,
+                                      },
+                                  })],
     };
 
     let start = PreciseTime::now();

@@ -6,28 +6,28 @@ use image::{ImageBuffer, Rgba};
 extern crate time;
 use time::PreciseTime;
 
+mod color;
+mod material;
 mod point;
 mod vector;
-mod color;
 
+pub use color::Color;
+pub use material::Material;
 pub use point::Point;
 pub use vector::Vector3;
-pub use color::Color;
 
 const SHADOW_BIAS: f64 = 1e-13;
 
 pub struct Sphere {
     pub center: Point,
     pub radius: f64,
-    pub color: Color,
-    pub albedo: f32,
+    pub material: Material,
 }
 
 pub struct Plane {
     pub origin: Point,
     pub normal: Vector3,
-    pub color: Color,
-    pub albedo: f32,
+    pub material: Material,
 }
 
 pub enum Body {
@@ -48,24 +48,25 @@ impl Plane {
 }
 
 impl Body {
-    pub fn color(&self) -> &Color {
+    pub fn material(&self) -> &Material {
         match *self {
-            Body::Sphere(ref sphere) => &sphere.color,
-            Body::Plane(ref plane) => &plane.color,
+            Body::Sphere(ref sphere) => &sphere.material,
+            Body::Plane(ref plane) => &plane.material,
         }
+    }
+
+    pub fn color(&self) -> &Color {
+        &self.material().color
+    }
+
+    pub fn albedo(&self) -> f32 {
+        self.material().albedo
     }
 
     pub fn surface_normal(&self, hit_point: &Point) -> Vector3 {
         match *self {
             Body::Sphere(ref sphere) => sphere.surface_normal(hit_point),
             Body::Plane(ref plane) => plane.surface_normal(hit_point),
-        }
-    }
-
-    pub fn albedo(&self) -> f32 {
-        match *self {
-            Body::Sphere(ref sphere) => sphere.albedo,
-            Body::Plane(ref plane) => plane.albedo,
         }
     }
 }
@@ -329,12 +330,14 @@ fn main() {
                                          y: -1.0,
                                          z: 0.0,
                                      },
-                                     color: Color {
-                                         red: 0.7,
-                                         green: 0.7,
-                                         blue: 0.7,
+                                     material: Material {
+                                         color: Color {
+                                             red: 0.7,
+                                             green: 0.7,
+                                             blue: 0.7,
+                                         },
+                                         albedo: 0.15,
                                      },
-                                     albedo: 0.15,
                                  }),
                      Body::Sphere(Sphere {
                                       center: Point {
@@ -343,12 +346,14 @@ fn main() {
                                           z: -5.0,
                                       },
                                       radius: 1.0,
-                                      color: Color {
-                                          red: 0.1,
-                                          green: 1.0,
-                                          blue: 0.8,
+                                      material: Material {
+                                          color: Color {
+                                              red: 0.1,
+                                              green: 1.0,
+                                              blue: 0.8,
+                                          },
+                                          albedo: 0.6,
                                       },
-                                      albedo: 0.6,
                                   }),
                      Body::Sphere(Sphere {
                                       center: Point {
@@ -357,12 +362,14 @@ fn main() {
                                           z: -5.2,
                                       },
                                       radius: 2.0,
-                                      color: Color {
-                                          red: 1.0,
-                                          green: 1.0,
-                                          blue: 0.8,
+                                      material: Material {
+                                          color: Color {
+                                              red: 1.0,
+                                              green: 1.0,
+                                              blue: 0.8,
+                                          },
+                                          albedo: 0.5,
                                       },
-                                      albedo: 0.5,
                                   }),
                      Body::Sphere(Sphere {
                                       center: Point {
@@ -371,12 +378,14 @@ fn main() {
                                           z: -8.0,
                                       },
                                       radius: 2.2,
-                                      color: Color {
-                                          red: 1.0,
-                                          green: 0.0,
-                                          blue: 0.0,
+                                      material: Material {
+                                          color: Color {
+                                              red: 1.0,
+                                              green: 0.0,
+                                              blue: 0.0,
+                                          },
+                                          albedo: 0.35,
                                       },
-                                      albedo: 0.35,
                                   })],
         lights: vec![Light::Directional(DirectionalLight {
                                             direction: Vector3 {

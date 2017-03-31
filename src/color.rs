@@ -2,7 +2,7 @@ use std::ops::{Add, Mul};
 
 use image::{Pixel, Rgba};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Color {
     pub red: f32,
     pub green: f32,
@@ -15,6 +15,14 @@ impl Color {
             red: 0.0,
             green: 0.0,
             blue: 0.0,
+        }
+    }
+
+    pub fn from_rgba(rgba: Rgba<u8>) -> Color {
+        Color {
+            red: rgba.data[0] as f32 / 255.0,
+            green: rgba.data[1] as f32 / 255.0,
+            blue: rgba.data[2] as f32 / 255.0,
         }
     }
 

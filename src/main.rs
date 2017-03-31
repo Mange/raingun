@@ -12,7 +12,7 @@ mod point;
 mod vector;
 
 pub use color::Color;
-pub use material::Material;
+pub use material::{Material, Coloration, TextureCoords};
 pub use point::Point;
 pub use vector::Vector3;
 
@@ -35,18 +35,6 @@ pub enum Body {
     Plane(Plane),
 }
 
-impl Sphere {
-    pub fn surface_normal(&self, hit_point: &Point) -> Vector3 {
-        (*hit_point - self.center).normalize()
-    }
-}
-
-impl Plane {
-    pub fn surface_normal(&self, _hit_point: &Point) -> Vector3 {
-        -self.normal
-    }
-}
-
 impl Body {
     pub fn material(&self) -> &Material {
         match *self {
@@ -55,19 +43,12 @@ impl Body {
         }
     }
 
-    pub fn color(&self) -> &Color {
-        &self.material().color
+    pub fn color(&self, texture_coords: &TextureCoords) -> Color {
+        self.material().color(texture_coords)
     }
 
     pub fn albedo(&self) -> f32 {
         self.material().albedo
-    }
-
-    pub fn surface_normal(&self, hit_point: &Point) -> Vector3 {
-        match *self {
-            Body::Sphere(ref sphere) => sphere.surface_normal(hit_point),
-            Body::Plane(ref plane) => plane.surface_normal(hit_point),
-        }
     }
 }
 
@@ -172,6 +153,9 @@ impl Ray {
 
 trait Intersectable {
     fn intersect(&self, ray: &Ray) -> Option<f64>;
+
+    fn surface_normal(&self, hit_point: &Point) -> Vector3;
+    fn texture_coords(&self, hit_point: &Point) -> TextureCoords;
 }
 
 impl Intersectable for Sphere {
@@ -217,6 +201,18 @@ impl Intersectable for Sphere {
             Some(distance0.min(distance1))
         }
     }
+
+    fn surface_normal(&self, hit_point: &Point) -> Vector3 {
+        (*hit_point - self.center).normalize()
+    }
+
+    fn texture_coords(&self, hit_point: &Point) -> TextureCoords {
+        let hit_vec = hit_point - self.center;
+        TextureCoords {
+            x: (1.0 + (hit_vec.z.atan2(hit_vec.x) as f32) / std::f32::consts::PI) * 0.5,
+            y: (hit_vec.y / self.radius).acos() as f32 / std::f32::consts::PI,
+        }
+    }
 }
 
 impl Intersectable for Plane {
@@ -235,6 +231,36 @@ impl Intersectable for Plane {
             None
         }
     }
+
+    fn surface_normal(&self, _hit_point: &Point) -> Vector3 {
+        -self.normal
+    }
+
+    fn texture_coords(&self, hit_point: &Point) -> TextureCoords {
+        let mut x_axis = self.normal
+            .cross(&Vector3 {
+                        x: 0.0,
+                        y: 0.0,
+                        z: 1.0,
+                    });
+
+        if x_axis.length() == 0.0 {
+            x_axis = self.normal
+                .cross(&Vector3 {
+                            x: 0.0,
+                            y: 1.0,
+                            z: 0.0,
+                        });
+        }
+
+        let y_axis = self.normal.cross(&x_axis);
+
+        let hit_vec = hit_point - self.origin;
+        TextureCoords {
+            x: hit_vec.dot(&x_axis) as f32,
+            y: hit_vec.dot(&y_axis) as f32,
+        }
+    }
 }
 
 impl Intersectable for Body {
@@ -242,6 +268,20 @@ impl Intersectable for Body {
         match *self {
             Body::Sphere(ref sphere) => sphere.intersect(ray),
             Body::Plane(ref plane) => plane.intersect(ray),
+        }
+    }
+
+    fn surface_normal(&self, hit_point: &Point) -> Vector3 {
+        match *self {
+            Body::Sphere(ref sphere) => sphere.surface_normal(hit_point),
+            Body::Plane(ref plane) => plane.surface_normal(hit_point),
+        }
+    }
+
+    fn texture_coords(&self, hit_point: &Point) -> TextureCoords {
+        match *self {
+            Body::Sphere(ref sphere) => sphere.texture_coords(hit_point),
+            Body::Plane(ref plane) => plane.texture_coords(hit_point),
         }
     }
 }
@@ -262,10 +302,12 @@ impl<'a> Intersection<'a> {
 
 pub fn get_color(scene: &Scene, ray: &Ray, intersection: &Intersection) -> Color {
     let hit_point = ray.origin + (ray.direction * intersection.distance);
-    let surface_normal = intersection.body.surface_normal(&hit_point);
+    let body = intersection.body;
+    let surface_normal = body.surface_normal(&hit_point);
 
     let mut final_color = Color::black();
-    let body_color = intersection.body.color();
+    let texture_coords = body.texture_coords(&hit_point);
+    let body_color = body.color(&texture_coords);
 
     for light in &scene.lights {
         let direction_to_light = light.direction_from(&hit_point);
@@ -315,6 +357,8 @@ pub fn render(scene: &Scene) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
 }
 
 fn main() {
+    let blue_marble = image::open(&Path::new("./textures/land_ocean_ice_cloud_2048.jpg")).expect("Could not load texture");
+
     let scene = Scene {
         width: 800,
         height: 600,
@@ -331,11 +375,11 @@ fn main() {
                                          z: 0.0,
                                      },
                                      material: Material {
-                                         color: Color {
-                                             red: 0.7,
-                                             green: 0.7,
-                                             blue: 0.7,
-                                         },
+                                         coloration: Coloration::Color(Color {
+                                                                           red: 0.7,
+                                                                           green: 0.7,
+                                                                           blue: 0.7,
+                                                                       }),
                                          albedo: 0.15,
                                      },
                                  }),
@@ -347,11 +391,7 @@ fn main() {
                                       },
                                       radius: 1.0,
                                       material: Material {
-                                          color: Color {
-                                              red: 0.1,
-                                              green: 1.0,
-                                              blue: 0.8,
-                                          },
+                                          coloration: Coloration::Texture(blue_marble),
                                           albedo: 0.6,
                                       },
                                   }),
@@ -363,11 +403,11 @@ fn main() {
                                       },
                                       radius: 2.0,
                                       material: Material {
-                                          color: Color {
-                                              red: 1.0,
-                                              green: 1.0,
-                                              blue: 0.8,
-                                          },
+                                          coloration: Coloration::Color(Color {
+                                                                            red: 1.0,
+                                                                            green: 1.0,
+                                                                            blue: 0.8,
+                                                                        }),
                                           albedo: 0.5,
                                       },
                                   }),
@@ -379,11 +419,11 @@ fn main() {
                                       },
                                       radius: 2.2,
                                       material: Material {
-                                          color: Color {
-                                              red: 1.0,
-                                              green: 0.0,
-                                              blue: 0.0,
-                                          },
+                                          coloration: Coloration::Color(Color {
+                                                                            red: 1.0,
+                                                                            green: 0.0,
+                                                                            blue: 0.0,
+                                                                        }),
                                           albedo: 0.35,
                                       },
                                   })],

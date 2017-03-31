@@ -15,10 +15,17 @@ pub struct TextureCoords {
     pub y: f32,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Coloration {
     Color(Color),
-    Texture(DynamicImage),
+    Texture(Texture),
+}
+
+#[derive(Clone)]
+pub struct Texture {
+    pub image: DynamicImage,
+    pub x_offset: f32,
+    pub y_offset: f32,
 }
 
 impl Material {
@@ -27,17 +34,12 @@ impl Material {
     }
 }
 
-impl Coloration {
+impl Texture {
     pub fn color(&self, texture_coords: &TextureCoords) -> Color {
-        match self {
-            &Coloration::Color(ref c) => c.clone(),
-            &Coloration::Texture(ref texture) => {
-                let x = Coloration::wrap(texture_coords.x, texture.width());
-                let y = Coloration::wrap(texture_coords.y, texture.height());
+        let x = Texture::wrap(texture_coords.x + self.x_offset, self.image.width());
+        let y = Texture::wrap(texture_coords.y + self.y_offset, self.image.height());
 
-                Color::from_rgba(texture.get_pixel(x, y))
-            }
-        }
+        Color::from_rgba(self.image.get_pixel(x, y))
     }
 
     fn wrap(val: f32, max: u32) -> u32 {
@@ -52,13 +54,22 @@ impl Coloration {
     }
 }
 
-impl fmt::Debug for Coloration {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Coloration {
+    pub fn color(&self, texture_coords: &TextureCoords) -> Color {
         match self {
-            &Coloration::Color(ref c) => c.fmt(f),
-            &Coloration::Texture(ref texture) => {
-                write!(f, "Texture {}×{}", texture.width(), texture.height())
-            }
+            &Coloration::Color(ref c) => c.clone(),
+            &Coloration::Texture(ref texture) => texture.color(texture_coords),
         }
+    }
+}
+
+impl fmt::Debug for Texture {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f,
+               "Texture {}×{} (offset x {}, y {})",
+               self.image.width(),
+               self.image.height(),
+               self.x_offset,
+               self.y_offset)
     }
 }

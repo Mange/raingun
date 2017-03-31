@@ -12,7 +12,7 @@ mod point;
 mod vector;
 
 pub use color::Color;
-pub use material::{Material, Coloration, TextureCoords};
+pub use material::{Material, Coloration, Texture, TextureCoords};
 pub use point::Point;
 pub use vector::Vector3;
 
@@ -391,7 +391,11 @@ fn main() {
                                       },
                                       radius: 1.0,
                                       material: Material {
-                                          coloration: Coloration::Texture(blue_marble),
+                                          coloration: Coloration::Texture(Texture {
+                                                                              image: blue_marble,
+                                                                              x_offset: 0.9,
+                                                                              y_offset: 0.0,
+                                                                          }),
                                           albedo: 0.6,
                                       },
                                   }),

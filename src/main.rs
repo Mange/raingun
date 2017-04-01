@@ -359,35 +359,47 @@ pub fn get_color(scene: &Scene, ray: &Ray, intersection: &Intersection, depth: u
     let hit_point = ray.origin + (ray.direction * intersection.distance);
     let body = intersection.body;
     let surface_normal = body.surface_normal(&hit_point);
+    let material = body.material();
 
-    let mut final_color = shade_diffuse(scene, body, &hit_point, &surface_normal);
-
-    match body.material().surface {
-        Surface::Diffuse => {}
+    match material.surface {
+        Surface::Diffuse => shade_diffuse(scene, body, &hit_point, &surface_normal),
         Surface::Reflecting { reflectivity } => {
+            let diffuse_color = shade_diffuse(scene, body, &hit_point, &surface_normal);
             let reflection_ray = Ray::create_reflection(surface_normal, ray.direction, hit_point);
-            final_color = final_color * (1.0 - reflectivity);
-            final_color = final_color +
-                          (cast_ray(scene, &reflection_ray, depth + 1) * reflectivity);
+            (diffuse_color * (1.0 - reflectivity)) +
+            (cast_ray(scene, &reflection_ray, depth + 1) * reflectivity)
         }
         Surface::Refractive {
             index,
             transparency,
         } => {
-            if let Some(refraction_ray) =
-                Ray::create_transmission(surface_normal,
-                                         ray.direction,
-                                         hit_point,
-                                         SHADOW_BIAS,
-                                         index) {
-                final_color = final_color * (1.0 - transparency);
-                final_color = final_color +
-                              (cast_ray(scene, &refraction_ray, depth + 1) * transparency);
+            let refraction_color;
+
+            let kr = fresnel(ray.direction, surface_normal, index) as f32;
+            let surface_color = material
+                .coloration
+                .color(&body.texture_coords(&hit_point));
+
+            if kr < 1.0 {
+                let transmission_ray = Ray::create_transmission(surface_normal,
+                                                                ray.direction,
+                                                                hit_point,
+                                                                SHADOW_BIAS,
+                                                                index)
+                        .unwrap();
+                refraction_color = cast_ray(scene, &transmission_ray, depth + 1);
+            } else {
+                refraction_color = scene.default_color;
             }
+
+            let reflection_ray = Ray::create_reflection(surface_normal, ray.direction, hit_point);
+            let reflection_color = cast_ray(scene, &reflection_ray, depth + 1);
+
+            let mut color = reflection_color * kr + refraction_color * (1.0 - kr);
+            color = color * transparency * surface_color;
+            color
         }
     }
-
-    final_color
 }
 
 fn cast_ray(scene: &Scene, ray: &Ray, depth: u32) -> Color {
@@ -439,6 +451,34 @@ fn shade_diffuse(scene: &Scene, body: &Body, hit_point: &Point, surface_normal: 
     }
 
     final_color.clamp()
+}
+
+fn fresnel(incident: Vector3, normal: Vector3, index: f32) -> f64 {
+    let i_dot_n = incident.dot(&normal);
+    let eta_i;
+    let eta_t;
+
+    if i_dot_n > 0.0 {
+        eta_i = index as f64;
+        eta_t = 1.0;
+    } else {
+        eta_i = 1.0;
+        eta_t = index as f64;
+    }
+
+    let sin_t = eta_i / eta_t * (1.0 - i_dot_n * i_dot_n).max(0.0).sqrt();
+
+    if sin_t > 1.0 {
+        // Total internal reflection
+        return 1.0;
+    } else {
+        let cos_t = (1.0 - sin_t * sin_t).max(0.0).sqrt();
+        let cos_i = cos_t.abs();
+        let r_s = ((eta_t * cos_i) - (eta_i * cos_t)) / ((eta_t * cos_i) + (eta_i * cos_t));
+        let r_p = ((eta_i * cos_i) - (eta_t * cos_t)) / ((eta_i * cos_i) + (eta_t * cos_t));
+
+        return (r_s * r_s + r_p * r_p) / 2.0;
+    }
 }
 
 pub fn render(scene: &Scene) -> ImageBuffer<Rgba<u8>, Vec<u8>> {

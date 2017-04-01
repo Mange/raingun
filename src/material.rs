@@ -33,6 +33,7 @@ pub struct Texture {
 pub enum Surface {
     Diffuse,
     Reflecting { reflectivity: f32 },
+    Refractive { index: f32, transparency: f32 },
 }
 
 impl Material {

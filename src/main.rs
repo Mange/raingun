@@ -117,6 +117,7 @@ pub struct Scene {
     pub bodies: Vec<Body>,
     pub lights: Vec<Light>,
     pub max_recursion_depth: u32,
+    pub default_color: Color,
 }
 
 impl Scene {
@@ -334,12 +335,12 @@ pub fn get_color(scene: &Scene, ray: &Ray, intersection: &Intersection, depth: u
 
 fn cast_ray(scene: &Scene, ray: &Ray, depth: u32) -> Color {
     if depth >= scene.max_recursion_depth {
-        Color::black()
+        scene.default_color
     } else {
         let intersection = scene.trace(&ray);
         intersection
             .map(|intersection| get_color(scene, &ray, &intersection, depth))
-            .unwrap_or(Color::black())
+            .unwrap_or(scene.default_color)
     }
 }
 
@@ -383,9 +384,9 @@ fn shade_diffuse(scene: &Scene, body: &Body, hit_point: &Point, surface_normal: 
     final_color.clamp()
 }
 
-pub fn render(scene: &Scene, base_color: Color) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
+pub fn render(scene: &Scene) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     let mut image = ImageBuffer::new(scene.width, scene.height);
-    let background = base_color.rgba();
+    let background = scene.default_color.rgba();
 
     for (x, y, pixel) in image.enumerate_pixels_mut() {
         let ray = Ray::create_prime(x, y, scene);
@@ -422,6 +423,11 @@ fn main() {
     let clay_ground = image::open(&Path::new("./textures/clay-ground-seamless.jpg")).expect("Could not load texture");
 
     let scene = Scene {
+        default_color: Color {
+            red: 0.4,
+            green: 0.5,
+            blue: 1.0,
+        },
         max_recursion_depth: 10,
         width: matches
             .value_of("width")
@@ -452,7 +458,7 @@ fn main() {
                                                                              y_offset: 0.0,
                                                                          }),
                                          albedo: 0.15,
-                                         surface: Surface::Reflecting { reflectivity: 0.2 },
+                                         surface: Surface::Diffuse,
                                      },
                                  }),
                      Body::Sphere(Sphere {
@@ -474,6 +480,23 @@ fn main() {
                                   }),
                      Body::Sphere(Sphere {
                                       center: Point {
+                                          x: -10.0,
+                                          y: 3.0,
+                                          z: -15.2,
+                                      },
+                                      radius: 5.0,
+                                      material: Material {
+                                          coloration: Coloration::Color(Color {
+                                                                            red: 1.0,
+                                                                            green: 1.0,
+                                                                            blue: 1.0,
+                                                                        }),
+                                          albedo: 0.5,
+                                          surface: Surface::Reflecting { reflectivity: 0.75 },
+                                      },
+                                  }),
+                     Body::Sphere(Sphere {
+                                      center: Point {
                                           x: 0.0,
                                           y: 3.7,
                                           z: -5.2,
@@ -486,7 +509,7 @@ fn main() {
                                                                             blue: 0.8,
                                                                         }),
                                           albedo: 0.5,
-                                          surface: Surface::Reflecting { reflectivity: 0.1 },
+                                          surface: Surface::Diffuse,
                                       },
                                   }),
                      Body::Sphere(Sphere {
@@ -535,7 +558,7 @@ fn main() {
     };
 
     let start = PreciseTime::now();
-    let image = render(&scene, Color::black());
+    let image = render(&scene);
     let end = PreciseTime::now();
 
     println!("Took {} to render scene", start.to(end));

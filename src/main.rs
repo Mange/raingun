@@ -558,6 +558,27 @@ fn main() {
                                          surface: Surface::Diffuse,
                                      },
                                  }),
+                     Body::Plane(Plane {
+                                     origin: Point {
+                                         x: 0.0,
+                                         y: 0.0,
+                                         z: -40.0,
+                                     },
+                                     normal: Vector3 {
+                                         x: 0.0,
+                                         y: 0.0,
+                                         z: -1.0,
+                                     },
+                                     material: Material {
+                                         coloration: Coloration::Color(Color {
+                                                                           red: 0.4,
+                                                                           green: 0.5,
+                                                                           blue: 1.0,
+                                                                       }),
+                                         albedo: 0.9,
+                                         surface: Surface::Diffuse,
+                                     },
+                                 }),
                      Body::Sphere(Sphere {
                                       center: Point {
                                           x: 0.0,
@@ -596,7 +617,7 @@ fn main() {
                                       center: Point {
                                           x: 0.0,
                                           y: 3.7,
-                                          z: -5.2,
+                                          z: -8.2,
                                       },
                                       radius: 2.0,
                                       material: Material {
@@ -613,16 +634,16 @@ fn main() {
                                       center: Point {
                                           x: 2.0,
                                           y: 1.0,
-                                          z: -8.0,
+                                          z: -6.0,
                                       },
-                                      radius: 2.2,
+                                      radius: 1.5,
                                       material: Material {
                                           coloration: Coloration::Color(Color {
                                                                             red: 1.0,
-                                                                            green: 0.0,
-                                                                            blue: 0.0,
+                                                                            green: 0.95,
+                                                                            blue: 0.95,
                                                                         }),
-                                          albedo: 0.35,
+                                          albedo: 0.18,
                                           surface: Surface::Refractive {
                                               index: 1.33, // Water at 20 ℃
                                               transparency: 0.8,
@@ -650,10 +671,23 @@ fn main() {
                                           },
                                           color: Color {
                                               red: 0.9,
-                                              blue: 0.7,
                                               green: 0.0,
+                                              blue: 0.7,
                                           },
                                           intensity: 4000.0,
+                                      }),
+                     Light::Spherical(SphericalLight {
+                                          position: Point {
+                                              x: 30.0,
+                                              y: 20.0,
+                                              z: -30.0,
+                                          },
+                                          color: Color {
+                                              red: 1.0,
+                                              green: 1.0,
+                                              blue: 0.7,
+                                          },
+                                          intensity: 15000.0,
                                       })],
     };
 

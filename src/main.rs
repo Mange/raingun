@@ -429,7 +429,7 @@ fn main() {
             .parse()
             .unwrap_or(DEFAULT_WIDTH),
         height: matches
-            .value_of("width")
+            .value_of("height")
             .unwrap()
             .parse()
             .unwrap_or(DEFAULT_HEIGHT),

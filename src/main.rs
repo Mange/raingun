@@ -6,6 +6,10 @@ use image::{ImageBuffer, Rgba};
 extern crate time;
 use time::PreciseTime;
 
+#[macro_use]
+extern crate clap;
+use clap::Arg;
+
 mod color;
 mod material;
 mod point;
@@ -17,6 +21,10 @@ pub use point::Point;
 pub use vector::Vector3;
 
 const SHADOW_BIAS: f64 = 1e-13;
+const DEFAULT_WIDTH: u32 = 800;
+const DEFAULT_HEIGHT: u32 = 600;
+const DEFAULT_WIDTH_STR: &'static str = "800";
+const DEFAULT_HEIGHT_STR: &'static str = "600";
 
 pub struct Sphere {
     pub center: Point,
@@ -392,13 +400,34 @@ pub fn render(scene: &Scene, base_color: Color) -> ImageBuffer<Rgba<u8>, Vec<u8>
 }
 
 fn main() {
+    let matches = app_from_crate!()
+        .arg(Arg::with_name("width")
+                 .short("w")
+                 .long("width")
+                 .value_name("PIXELS")
+                 .default_value(DEFAULT_WIDTH_STR))
+        .arg(Arg::with_name("height")
+                 .short("h")
+                 .long("height")
+                 .value_name("PIXELS")
+                 .default_value(DEFAULT_HEIGHT_STR))
+        .get_matches();
+
     let blue_marble = image::open(&Path::new("./textures/land_ocean_ice_cloud_2048.jpg")).expect("Could not load texture");
     let clay_ground = image::open(&Path::new("./textures/clay-ground-seamless.jpg")).expect("Could not load texture");
 
     let scene = Scene {
         max_recursion_depth: 10,
-        width: 800,
-        height: 600,
+        width: matches
+            .value_of("width")
+            .unwrap()
+            .parse()
+            .unwrap_or(DEFAULT_WIDTH),
+        height: matches
+            .value_of("width")
+            .unwrap()
+            .parse()
+            .unwrap_or(DEFAULT_HEIGHT),
         fov: 90.0,
         bodies: vec![Body::Plane(Plane {
                                      origin: Point {

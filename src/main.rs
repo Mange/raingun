@@ -375,13 +375,17 @@ fn shade_diffuse(scene: &Scene, body: &Body, hit_point: &Point, surface_normal: 
     final_color.clamp()
 }
 
-pub fn render(scene: &Scene) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
+pub fn render(scene: &Scene, base_color: Color) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     let mut image = ImageBuffer::new(scene.width, scene.height);
+    let background = base_color.rgba();
+
     for (x, y, pixel) in image.enumerate_pixels_mut() {
         let ray = Ray::create_prime(x, y, scene);
-        if let Some(intersection) = scene.trace(&ray) {
-            *pixel = get_color(scene, &ray, &intersection, 0).rgba();
-        }
+        *pixel = if let Some(intersection) = scene.trace(&ray) {
+            get_color(scene, &ray, &intersection, 0).rgba()
+        } else {
+            background
+        };
     }
 
     image
@@ -389,6 +393,7 @@ pub fn render(scene: &Scene) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
 
 fn main() {
     let blue_marble = image::open(&Path::new("./textures/land_ocean_ice_cloud_2048.jpg")).expect("Could not load texture");
+    let clay_ground = image::open(&Path::new("./textures/clay-ground-seamless.jpg")).expect("Could not load texture");
 
     let scene = Scene {
         max_recursion_depth: 10,
@@ -407,11 +412,11 @@ fn main() {
                                          z: 0.0,
                                      },
                                      material: Material {
-                                         coloration: Coloration::Color(Color {
-                                                                           red: 0.7,
-                                                                           green: 0.7,
-                                                                           blue: 0.7,
-                                                                       }),
+                                         coloration: Coloration::Texture(Texture {
+                                                                             image: clay_ground,
+                                                                             x_offset: 0.0,
+                                                                             y_offset: 0.0,
+                                                                         }),
                                          albedo: 0.15,
                                          surface: Surface::Reflecting { reflectivity: 0.2 },
                                      },
@@ -496,7 +501,7 @@ fn main() {
     };
 
     let start = PreciseTime::now();
-    let image = render(&scene);
+    let image = render(&scene, Color::black());
     let end = PreciseTime::now();
 
     println!("Took {} to render scene", start.to(end));

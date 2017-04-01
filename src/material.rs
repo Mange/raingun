@@ -7,6 +7,7 @@ use color::Color;
 pub struct Material {
     pub coloration: Coloration,
     pub albedo: f32,
+    pub surface: Surface,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -26,6 +27,12 @@ pub struct Texture {
     pub image: DynamicImage,
     pub x_offset: f32,
     pub y_offset: f32,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Surface {
+    Diffuse,
+    Reflecting { reflectivity: f32 },
 }
 
 impl Material {

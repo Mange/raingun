@@ -30,6 +30,14 @@ impl Add<Vector3> for Point {
     }
 }
 
+impl<'a> Add<Vector3> for &'a Point {
+    type Output = Point;
+
+    fn add(self, other: Vector3) -> Point {
+        (*self) + other
+    }
+}
+
 impl Sub<Point> for Point {
     type Output = Vector3;
 

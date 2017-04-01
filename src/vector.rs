@@ -1,4 +1,4 @@
-use std::ops::{Mul, Neg};
+use std::ops::{Add, Sub, Mul, Neg};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Vector3 {
@@ -71,5 +71,45 @@ impl Mul<f64> for Vector3 {
             y: self.y * other,
             z: self.z * other,
         }
+    }
+}
+
+impl<'a> Mul<f64> for &'a Vector3 {
+    type Output = Vector3;
+
+    fn mul(self, other: f64) -> Vector3 {
+        (*self) * other
+    }
+}
+
+impl Add for Vector3 {
+    type Output = Vector3;
+
+    fn add(self, other: Vector3) -> Vector3 {
+        Vector3 {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            z: self.z + other.z,
+        }
+    }
+}
+
+impl Sub for Vector3 {
+    type Output = Vector3;
+
+    fn sub(self, other: Vector3) -> Vector3 {
+        Vector3 {
+            x: self.x - other.x,
+            y: self.y - other.y,
+            z: self.z - other.z,
+        }
+    }
+}
+
+impl Mul<Vector3> for f64 {
+    type Output = Vector3;
+
+    fn mul(self, other: Vector3) -> Vector3 {
+        other * self
     }
 }

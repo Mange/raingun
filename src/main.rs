@@ -12,7 +12,7 @@ mod point;
 mod vector;
 
 pub use color::Color;
-pub use material::{Material, Coloration, Texture, TextureCoords};
+pub use material::{Material, Coloration, Texture, TextureCoords, Surface};
 pub use point::Point;
 pub use vector::Vector3;
 
@@ -108,6 +108,7 @@ pub struct Scene {
     pub fov: f64,
     pub bodies: Vec<Body>,
     pub lights: Vec<Light>,
+    pub max_recursion_depth: u32,
 }
 
 impl Scene {
@@ -147,6 +148,13 @@ impl Ray {
                     z: -1.0, // Ray direction is straight into image
                 }
                 .normalize(),
+        }
+    }
+
+    pub fn create_reflection(normal: Vector3, incident: Vector3, intersection: Point) -> Ray {
+        Ray {
+            origin: intersection + (normal * SHADOW_BIAS),
+            direction: incident - (2.0 * incident.dot(&normal) * normal),
         }
     }
 }
@@ -300,15 +308,38 @@ impl<'a> Intersection<'a> {
     }
 }
 
-pub fn get_color(scene: &Scene, ray: &Ray, intersection: &Intersection) -> Color {
+pub fn get_color(scene: &Scene, ray: &Ray, intersection: &Intersection, depth: u32) -> Color {
     let hit_point = ray.origin + (ray.direction * intersection.distance);
     let body = intersection.body;
     let surface_normal = body.surface_normal(&hit_point);
 
-    let mut final_color = Color::black();
+    let mut final_color = shade_diffuse(scene, body, &hit_point, &surface_normal);
+
+    if let Surface::Reflecting { reflectivity } = body.material().surface {
+        let reflection_ray = Ray::create_reflection(surface_normal, ray.direction, hit_point);
+        final_color = final_color * (1.0 - reflectivity);
+        final_color = final_color + (cast_ray(scene, &reflection_ray, depth + 1) * reflectivity);
+    }
+
+    final_color
+}
+
+fn cast_ray(scene: &Scene, ray: &Ray, depth: u32) -> Color {
+    if depth >= scene.max_recursion_depth {
+        Color::black()
+    } else {
+        let intersection = scene.trace(&ray);
+        intersection
+            .map(|intersection| get_color(scene, &ray, &intersection, depth))
+            .unwrap_or(Color::black())
+    }
+}
+
+fn shade_diffuse(scene: &Scene, body: &Body, hit_point: &Point, surface_normal: &Vector3) -> Color {
     let texture_coords = body.texture_coords(&hit_point);
     let body_color = body.color(&texture_coords);
 
+    let mut final_color = Color::black();
     for light in &scene.lights {
         let direction_to_light = light.direction_from(&hit_point);
 
@@ -335,7 +366,7 @@ pub fn get_color(scene: &Scene, ray: &Ray, intersection: &Intersection) -> Color
 
         let light_power = (surface_normal.dot(&direction_to_light) as f32).max(0.0) *
                           light_intensity;
-        let light_reflected = intersection.body.albedo() / std::f32::consts::PI;
+        let light_reflected = body.albedo() / std::f32::consts::PI;
         let light_color = light.color() * light_power * light_reflected;
 
         final_color = final_color + (body_color * light_color);
@@ -349,7 +380,7 @@ pub fn render(scene: &Scene) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     for (x, y, pixel) in image.enumerate_pixels_mut() {
         let ray = Ray::create_prime(x, y, scene);
         if let Some(intersection) = scene.trace(&ray) {
-            *pixel = get_color(scene, &ray, &intersection).rgba();
+            *pixel = get_color(scene, &ray, &intersection, 0).rgba();
         }
     }
 
@@ -360,6 +391,7 @@ fn main() {
     let blue_marble = image::open(&Path::new("./textures/land_ocean_ice_cloud_2048.jpg")).expect("Could not load texture");
 
     let scene = Scene {
+        max_recursion_depth: 10,
         width: 800,
         height: 600,
         fov: 90.0,
@@ -381,6 +413,7 @@ fn main() {
                                                                            blue: 0.7,
                                                                        }),
                                          albedo: 0.15,
+                                         surface: Surface::Reflecting { reflectivity: 0.2 },
                                      },
                                  }),
                      Body::Sphere(Sphere {
@@ -397,6 +430,7 @@ fn main() {
                                                                               y_offset: 0.0,
                                                                           }),
                                           albedo: 0.6,
+                                          surface: Surface::Diffuse,
                                       },
                                   }),
                      Body::Sphere(Sphere {
@@ -413,6 +447,7 @@ fn main() {
                                                                             blue: 0.8,
                                                                         }),
                                           albedo: 0.5,
+                                          surface: Surface::Reflecting { reflectivity: 0.1 },
                                       },
                                   }),
                      Body::Sphere(Sphere {
@@ -429,6 +464,7 @@ fn main() {
                                                                             blue: 0.0,
                                                                         }),
                                           albedo: 0.35,
+                                          surface: Surface::Reflecting { reflectivity: 0.6 },
                                       },
                                   })],
         lights: vec![Light::Directional(DirectionalLight {
@@ -463,8 +499,7 @@ fn main() {
     let image = render(&scene);
     let end = PreciseTime::now();
 
-    println!("Took {} μseconds to render scene",
-             start.to(end).num_microseconds().unwrap());
+    println!("Took {} to render scene", start.to(end));
 
     image
         .save(&Path::new("test1.png"))

@@ -411,6 +411,11 @@ fn main() {
                  .long("height")
                  .value_name("PIXELS")
                  .default_value(DEFAULT_HEIGHT_STR))
+        .arg(Arg::with_name("output")
+                 .short("o")
+                 .long("output")
+                 .value_name("FILENAME")
+                 .default_value("test1.png"))
         .get_matches();
 
     let blue_marble = image::open(&Path::new("./textures/land_ocean_ice_cloud_2048.jpg")).expect("Could not load texture");
@@ -536,6 +541,6 @@ fn main() {
     println!("Took {} to render scene", start.to(end));
 
     image
-        .save(&Path::new("test1.png"))
+        .save(&Path::new(matches.value_of("output").unwrap()))
         .expect("Could not encode image");
 }

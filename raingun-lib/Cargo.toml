@@ -1,0 +1,7 @@
+[package]
+name = "raingun-lib"
+version = "0.1.0"
+authors = ["Magnus Bergmark <magnus.bergmark@gmail.com>"]
+
+[dependencies]
+image = "0.12"

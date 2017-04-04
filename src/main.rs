@@ -10,15 +10,9 @@ use time::PreciseTime;
 extern crate clap;
 use clap::Arg;
 
-mod color;
-mod material;
-mod point;
-mod vector;
-
-pub use color::Color;
-pub use material::{Material, Coloration, Texture, TextureCoords, Surface};
-pub use point::Point;
-pub use vector::Vector3;
+extern crate raingun_lib as raingun;
+use raingun::{Color, Point, Vector3};
+use raingun::material::{Material, Coloration, Texture, TextureCoords, Surface};
 
 const SHADOW_BIAS: f64 = 1e-13;
 const DEFAULT_WIDTH: u32 = 800;

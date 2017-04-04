@@ -59,16 +59,8 @@ fn main() {
             .unwrap_or(DEFAULT_HEIGHT),
         fov: 90.0,
         bodies: vec![Body::Plane(Plane {
-                                     origin: Point {
-                                         x: 0.0,
-                                         y: -2.0,
-                                         z: -5.0,
-                                     },
-                                     normal: Vector3 {
-                                         x: 0.0,
-                                         y: -1.0,
-                                         z: 0.0,
-                                     },
+                                     origin: Point3::new(0.0, -2.0, -5.0),
+                                     normal: Vector3::new(0.0, -1.0, 0.0),
                                      material: Material {
                                          coloration: Coloration::Texture(Texture {
                                                                              image: clay_ground,
@@ -80,16 +72,8 @@ fn main() {
                                      },
                                  }),
                      Body::Plane(Plane {
-                                     origin: Point {
-                                         x: 0.0,
-                                         y: 0.0,
-                                         z: -40.0,
-                                     },
-                                     normal: Vector3 {
-                                         x: 0.0,
-                                         y: 0.0,
-                                         z: -1.0,
-                                     },
+                                     origin: Point3::new(0.0, 0.0, -40.0),
+                                     normal: Vector3::new(0.0, 0.0, -1.0),
                                      material: Material {
                                          coloration: Coloration::Color(Color {
                                                                            red: 0.4,
@@ -101,11 +85,7 @@ fn main() {
                                      },
                                  }),
                      Body::Sphere(Sphere {
-                                      center: Point {
-                                          x: 0.0,
-                                          y: 0.0,
-                                          z: -5.0,
-                                      },
+                                      center: Point3::new(0.0, 0.0, -5.0),
                                       radius: 1.0,
                                       material: Material {
                                           coloration: Coloration::Texture(Texture {
@@ -118,11 +98,7 @@ fn main() {
                                       },
                                   }),
                      Body::Sphere(Sphere {
-                                      center: Point {
-                                          x: -10.0,
-                                          y: 3.0,
-                                          z: -15.2,
-                                      },
+                                      center: Point3::new(-10.0, 3.0, -15.2),
                                       radius: 5.0,
                                       material: Material {
                                           coloration: Coloration::Color(Color {
@@ -135,11 +111,7 @@ fn main() {
                                       },
                                   }),
                      Body::Sphere(Sphere {
-                                      center: Point {
-                                          x: 0.0,
-                                          y: 3.7,
-                                          z: -8.2,
-                                      },
+                                      center: Point3::new(0.0, 3.7, -8.2),
                                       radius: 2.0,
                                       material: Material {
                                           coloration: Coloration::Color(Color {
@@ -152,11 +124,7 @@ fn main() {
                                       },
                                   }),
                      Body::Sphere(Sphere {
-                                      center: Point {
-                                          x: 2.0,
-                                          y: 1.0,
-                                          z: -6.0,
-                                      },
+                                      center: Point3::new(2.0, 1.0, -6.0),
                                       radius: 1.5,
                                       material: Material {
                                           coloration: Coloration::Color(Color {
@@ -172,11 +140,7 @@ fn main() {
                                       },
                                   })],
         lights: vec![Light::Directional(DirectionalLight {
-                                            direction: Vector3 {
-                                                x: 0.4,
-                                                y: -1.0,
-                                                z: -0.9,
-                                            },
+                                            direction: Vector3::new(0.4, -1.0, -0.9),
                                             color: Color {
                                                 red: 1.0,
                                                 green: 1.0,
@@ -185,11 +149,7 @@ fn main() {
                                             intensity: 7.0,
                                         }),
                      Light::Spherical(SphericalLight {
-                                          position: Point {
-                                              x: -6.0,
-                                              y: 3.2,
-                                              z: -5.0,
-                                          },
+                                          position: Point3::new(-6.0, 3.2, -5.0),
                                           color: Color {
                                               red: 0.9,
                                               green: 0.0,
@@ -198,11 +158,7 @@ fn main() {
                                           intensity: 4000.0,
                                       }),
                      Light::Spherical(SphericalLight {
-                                          position: Point {
-                                              x: 30.0,
-                                              y: 20.0,
-                                              z: -30.0,
-                                          },
+                                          position: Point3::new(30.0, 20.0, -30.0),
                                           color: Color {
                                               red: 1.0,
                                               green: 1.0,

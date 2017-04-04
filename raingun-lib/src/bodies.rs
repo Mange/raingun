@@ -1,19 +1,19 @@
 use color::Color;
 use material::*;
-use point::Point;
 use ray::Ray;
-use vector::Vector3;
+use super::{Point3, Vector3};
+use cgmath::prelude::*;
 
 use std::f32::consts::PI;
 
 pub struct Sphere {
-    pub center: Point,
+    pub center: Point3,
     pub radius: f64,
     pub material: Material,
 }
 
 pub struct Plane {
-    pub origin: Point,
+    pub origin: Point3,
     pub normal: Vector3,
     pub material: Material,
 }
@@ -43,8 +43,8 @@ impl Body {
 pub trait Intersectable {
     fn intersect(&self, ray: &Ray) -> Option<f64>;
 
-    fn surface_normal(&self, hit_point: &Point) -> Vector3;
-    fn texture_coords(&self, hit_point: &Point) -> TextureCoords;
+    fn surface_normal(&self, hit_point: &Point3) -> Vector3;
+    fn texture_coords(&self, hit_point: &Point3) -> TextureCoords;
 }
 
 impl Intersectable for Sphere {
@@ -65,10 +65,9 @@ impl Intersectable for Sphere {
         // (that is the "opposite" line calculated in step 1).
 
         let hypothenuse = self.center - ray.origin;
-        let adjacent_squared = hypothenuse.dot(&ray.direction);
+        let adjacent_squared = hypothenuse.dot(ray.direction);
         // This is the same as hypothenuse.length()² - (adjacent²)², but faster.
-        let opposite_squared = hypothenuse.dot(&hypothenuse) -
-                               (adjacent_squared * adjacent_squared);
+        let opposite_squared = hypothenuse.dot(hypothenuse) - (adjacent_squared * adjacent_squared);
 
         let radius_squared = self.radius * self.radius;
 
@@ -95,11 +94,11 @@ impl Intersectable for Sphere {
         }
     }
 
-    fn surface_normal(&self, hit_point: &Point) -> Vector3 {
+    fn surface_normal(&self, hit_point: &Point3) -> Vector3 {
         (*hit_point - self.center).normalize()
     }
 
-    fn texture_coords(&self, hit_point: &Point) -> TextureCoords {
+    fn texture_coords(&self, hit_point: &Point3) -> TextureCoords {
         let hit_vec = hit_point - self.center;
         TextureCoords {
             x: (1.0 + (hit_vec.z.atan2(hit_vec.x) as f32) / PI) * 0.5,
@@ -110,11 +109,10 @@ impl Intersectable for Sphere {
 
 impl Intersectable for Plane {
     fn intersect(&self, ray: &Ray) -> Option<f64> {
-        let normal = &self.normal;
-        let denominator = normal.dot(&ray.direction);
+        let denominator = self.normal.dot(ray.direction);
         if denominator > 1e-6 {
             let v = self.origin - ray.origin;
-            let distance = v.dot(&normal) / denominator;
+            let distance = v.dot(self.normal) / denominator;
             if distance >= 0.0 {
                 Some(distance)
             } else {
@@ -125,33 +123,23 @@ impl Intersectable for Plane {
         }
     }
 
-    fn surface_normal(&self, _hit_point: &Point) -> Vector3 {
+    fn surface_normal(&self, _hit_point: &Point3) -> Vector3 {
         -self.normal
     }
 
-    fn texture_coords(&self, hit_point: &Point) -> TextureCoords {
-        let mut x_axis = self.normal
-            .cross(&Vector3 {
-                        x: 0.0,
-                        y: 0.0,
-                        z: 1.0,
-                    });
+    fn texture_coords(&self, hit_point: &Point3) -> TextureCoords {
+        let mut x_axis = self.normal.cross(Vector3::unit_z());
 
-        if x_axis.length() == 0.0 {
-            x_axis = self.normal
-                .cross(&Vector3 {
-                            x: 0.0,
-                            y: 1.0,
-                            z: 0.0,
-                        });
+        if x_axis.magnitude2() == 0.0 {
+            x_axis = self.normal.cross(Vector3::unit_y());
         }
 
-        let y_axis = self.normal.cross(&x_axis);
+        let y_axis = self.normal.cross(x_axis);
 
         let hit_vec = hit_point - self.origin;
         TextureCoords {
-            x: hit_vec.dot(&x_axis) as f32,
-            y: hit_vec.dot(&y_axis) as f32,
+            x: hit_vec.dot(x_axis) as f32,
+            y: hit_vec.dot(y_axis) as f32,
         }
     }
 }
@@ -164,14 +152,14 @@ impl Intersectable for Body {
         }
     }
 
-    fn surface_normal(&self, hit_point: &Point) -> Vector3 {
+    fn surface_normal(&self, hit_point: &Point3) -> Vector3 {
         match *self {
             Body::Sphere(ref sphere) => sphere.surface_normal(hit_point),
             Body::Plane(ref plane) => plane.surface_normal(hit_point),
         }
     }
 
-    fn texture_coords(&self, hit_point: &Point) -> TextureCoords {
+    fn texture_coords(&self, hit_point: &Point3) -> TextureCoords {
         match *self {
             Body::Sphere(ref sphere) => sphere.texture_coords(hit_point),
             Body::Plane(ref plane) => plane.texture_coords(hit_point),

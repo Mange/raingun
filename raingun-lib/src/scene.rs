@@ -3,9 +3,9 @@ use color::Color;
 use image::{ImageBuffer, Rgba};
 use lights::*;
 use material::*;
-use point::Point;
 use ray::Ray;
-use vector::Vector3;
+use cgmath::prelude::*;
+use super::{Point3, Vector3};
 
 use super::SHADOW_BIAS;
 
@@ -88,7 +88,11 @@ fn cast_ray(scene: &Scene, ray: &Ray, depth: u32) -> Color {
     }
 }
 
-fn shade_diffuse(scene: &Scene, body: &Body, hit_point: &Point, surface_normal: &Vector3) -> Color {
+fn shade_diffuse(scene: &Scene,
+                 body: &Body,
+                 hit_point: &Point3,
+                 surface_normal: &Vector3)
+                 -> Color {
     let texture_coords = body.texture_coords(&hit_point);
     let body_color = body.color(&texture_coords);
 
@@ -117,7 +121,7 @@ fn shade_diffuse(scene: &Scene, body: &Body, hit_point: &Point, surface_normal: 
             0.0
         };
 
-        let light_power = (surface_normal.dot(&direction_to_light) as f32).max(0.0) *
+        let light_power = (surface_normal.dot(direction_to_light) as f32).max(0.0) *
                           light_intensity;
         let light_reflected = body.albedo() / PI;
         let light_color = light.color() * light_power * light_reflected;
@@ -129,7 +133,7 @@ fn shade_diffuse(scene: &Scene, body: &Body, hit_point: &Point, surface_normal: 
 }
 
 fn fresnel(incident: Vector3, normal: Vector3, index: f32) -> f64 {
-    let i_dot_n = incident.dot(&normal);
+    let i_dot_n = incident.dot(normal);
     let eta_i;
     let eta_t;
 

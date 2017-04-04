@@ -5,3 +5,4 @@ authors = ["Magnus Bergmark <magnus.bergmark@gmail.com>"]
 
 [dependencies]
 image = "0.12"
+cgmath = "0.12"

@@ -1,11 +1,9 @@
-use point::Point;
 use scene::Scene;
-use vector::Vector3;
-
-use super::SHADOW_BIAS;
+use super::{Point3, Vector3, SHADOW_BIAS};
+use cgmath::prelude::*;
 
 pub struct Ray {
-    pub origin: Point,
+    pub origin: Point3,
     pub direction: Vector3,
 }
 
@@ -25,33 +23,29 @@ impl Ray {
         let sensor_y = (1.0 - ((y as f64 + 0.5) / scene.height as f64) * 2.0) * fov_adjustment;
 
         Ray {
-            origin: Point::zero(),
-            direction: Vector3 {
-                    x: sensor_x,
-                    y: sensor_y,
-                    z: -1.0, // Ray direction is straight into image
-                }
-                .normalize(),
+            origin: Point3::origin(),
+            // Ray direction is straight into image (z = -1.0)
+            direction: Vector3::new(sensor_x, sensor_y, -1.0).normalize(),
         }
     }
 
-    pub fn create_reflection(normal: Vector3, incident: Vector3, intersection: Point) -> Ray {
+    pub fn create_reflection(normal: Vector3, incident: Vector3, intersection: Point3) -> Ray {
         Ray {
             origin: intersection + (normal * SHADOW_BIAS),
-            direction: incident - (2.0 * incident.dot(&normal) * normal),
+            direction: incident - (2.0 * incident.dot(normal) * normal),
         }
     }
 
     pub fn create_transmission(normal: Vector3,
                                incident: Vector3,
-                               intersection: Point,
+                               intersection: Point3,
                                bias: f64,
                                index: f32)
                                -> Option<Ray> {
         let mut ref_n = normal;
         let mut eta_t = index as f64;
         let mut eta_i = 1.0f64;
-        let mut i_dot_n = incident.dot(&normal);
+        let mut i_dot_n = incident.dot(normal);
 
         if i_dot_n < 0.0 {
             // Outside the surface

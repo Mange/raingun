@@ -1,6 +1,6 @@
 use color::Color;
-use point::Point;
-use vector::Vector3;
+use super::{Point3, Vector3};
+use cgmath::prelude::*;
 
 use std::f32::consts::PI;
 use std::f64::INFINITY;
@@ -12,7 +12,7 @@ pub struct DirectionalLight {
 }
 
 pub struct SphericalLight {
-    pub position: Point,
+    pub position: Point3,
     pub color: Color,
     pub intensity: f32,
 }
@@ -30,27 +30,27 @@ impl Light {
         }
     }
 
-    pub fn intensity(&self, hit_point: &Point) -> f32 {
+    pub fn intensity(&self, hit_point: &Point3) -> f32 {
         match *self {
             Light::Directional(ref directional) => directional.intensity,
             Light::Spherical(ref spherical) => {
-                let radius_squared = (spherical.position - hit_point).norm() as f32;
+                let radius_squared = (spherical.position - hit_point).magnitude2() as f32;
                 spherical.intensity / (4.0 * PI * radius_squared)
             }
         }
     }
 
-    pub fn direction_from(&self, point: &Point) -> Vector3 {
+    pub fn direction_from(&self, point: &Point3) -> Vector3 {
         match *self {
             Light::Directional(ref directional) => (-directional.direction).normalize(),
             Light::Spherical(ref spherical) => (spherical.position - point).normalize(),
         }
     }
 
-    pub fn distance(&self, point: &Point) -> f64 {
+    pub fn distance(&self, point: &Point3) -> f64 {
         match *self {
             Light::Directional(_) => INFINITY,
-            Light::Spherical(ref spherical) => (spherical.position - point).length(),
+            Light::Spherical(ref spherical) => (spherical.position - point).magnitude(),
         }
     }
 }

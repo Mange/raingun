@@ -1,9 +1,11 @@
-extern crate image;
 extern crate cgmath;
-
+extern crate image;
+extern crate rayon;
 extern crate serde;
+
 #[macro_use]
 extern crate serde_derive;
+
 
 // TODO: Make this an attribute of the scene
 const SHADOW_BIAS: f64 = 1e-13;

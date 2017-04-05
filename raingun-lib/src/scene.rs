@@ -14,8 +14,6 @@ use std::f32::consts::PI;
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields, default, rename_all = "camelCase")]
 pub struct Scene {
-    pub width: u32,
-    pub height: u32,
     pub fov: f64,
     pub default_color: Color,
     pub max_recursion_depth: u32,
@@ -26,8 +24,6 @@ pub struct Scene {
 impl Default for Scene {
     fn default() -> Scene {
         Scene {
-            width: 800,
-            height: 600,
             fov: 90.0,
             default_color: Color::default(),
             max_recursion_depth: 10,
@@ -43,6 +39,22 @@ impl Scene {
             .iter()
             .filter_map(|body| body.intersect(ray).map(|d| Intersection::new(d, body)))
             .min_by(|i1, i2| i1.distance.partial_cmp(&i2.distance).unwrap())
+    }
+
+    pub fn render(&self, width: u32, height: u32) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
+        let mut image = ImageBuffer::new(width, height);
+        let background = self.default_color.rgba();
+
+        for (x, y, pixel) in image.enumerate_pixels_mut() {
+            let ray = Ray::create_prime(x, y, self, width, height);
+            *pixel = if let Some(intersection) = self.trace(&ray) {
+                get_color(self, &ray, &intersection, 0).rgba()
+            } else {
+                background
+            };
+        }
+
+        image
     }
 }
 
@@ -174,20 +186,4 @@ fn fresnel(incident: Vector3, normal: Vector3, index: f32) -> f64 {
 
         return (r_s * r_s + r_p * r_p) / 2.0;
     }
-}
-
-pub fn render(scene: &Scene) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
-    let mut image = ImageBuffer::new(scene.width, scene.height);
-    let background = scene.default_color.rgba();
-
-    for (x, y, pixel) in image.enumerate_pixels_mut() {
-        let ray = Ray::create_prime(x, y, scene);
-        *pixel = if let Some(intersection) = scene.trace(&ray) {
-            get_color(scene, &ray, &intersection, 0).rgba()
-        } else {
-            background
-        };
-    }
-
-    image
 }

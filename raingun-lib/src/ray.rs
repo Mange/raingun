@@ -8,19 +8,19 @@ pub struct Ray {
 }
 
 impl Ray {
-    pub fn create_prime(x: u32, y: u32, scene: &Scene) -> Ray {
+    pub fn create_prime(x: u32, y: u32, scene: &Scene, width: u32, height: u32) -> Ray {
         // Represent the camera's sensor with -1.0 at 0,0 and 1.0 at width,height.
         // Then adjust for aspect ratio and FoV
 
         // TODO: Support portrait images too
-        assert!(scene.width >= scene.height);
-        let aspect_ratio = scene.width as f64 / scene.height as f64;
+        assert!(width >= height);
+        let aspect_ratio = width as f64 / height as f64;
 
         let fov_adjustment = (scene.fov.to_radians() / 2.0).tan();
 
-        let sensor_x = (((x as f64 + 0.5) / scene.width as f64) * 2.0 - 1.0) * aspect_ratio *
+        let sensor_x = (((x as f64 + 0.5) / width as f64) * 2.0 - 1.0) * aspect_ratio *
                        fov_adjustment;
-        let sensor_y = (1.0 - ((y as f64 + 0.5) / scene.height as f64) * 2.0) * fov_adjustment;
+        let sensor_y = (1.0 - ((y as f64 + 0.5) / height as f64) * 2.0) * fov_adjustment;
 
         Ray {
             origin: Point3::origin(),

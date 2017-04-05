@@ -1,7 +1,6 @@
 extern crate image;
 extern crate cgmath;
 
-#[macro_use]
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
@@ -20,7 +19,7 @@ pub use bodies::{Body, Sphere, Plane};
 pub use color::Color;
 pub use lights::{Light, DirectionalLight, SphericalLight};
 pub use ray::Ray;
-pub use scene::{Scene, render};
+pub use scene::Scene;
 pub use cgmath::prelude::*;
 
 pub type Point3 = cgmath::Point3<f64>;

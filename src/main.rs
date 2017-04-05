@@ -10,7 +10,7 @@ extern crate clap;
 use clap::Arg;
 
 extern crate raingun_lib as raingun;
-use raingun::{Scene, render};
+use raingun::Scene;
 
 const DEFAULT_WIDTH: u32 = 800;
 const DEFAULT_HEIGHT: u32 = 600;
@@ -45,8 +45,19 @@ fn main() {
     let file = File::open("examples/test1.yml").expect("Could not open example file");
     let scene: Scene = serde_yaml::from_reader(&file).expect("Could not load YAML");
 
+    let width = matches
+        .value_of("width")
+        .unwrap()
+        .parse()
+        .unwrap_or(DEFAULT_WIDTH);
+    let height = matches
+        .value_of("height")
+        .unwrap()
+        .parse()
+        .unwrap_or(DEFAULT_HEIGHT);
+
     let start = PreciseTime::now();
-    let image = render(&scene);
+    let image = scene.render(width, height);
     let end = PreciseTime::now();
 
     println!("Took {} to render scene", start.to(end));

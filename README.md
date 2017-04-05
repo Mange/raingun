@@ -8,7 +8,7 @@ blog][tutorial] and additional details from
 
 ## Example image
 
-![](test1.png)
+![](examples/test1.png)
 
 ## Building and running
 

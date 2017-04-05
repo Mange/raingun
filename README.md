@@ -16,13 +16,13 @@ Use `cargo` to run and build this project.
 
 ```bash
 # To compile and run release build
-cargo run --release
+cargo run --release -- --help
 
 # Passing arguments to the command
 cargo run -- --help
 
 # Running tests
-cargo test
+cargo test --all
 ```
 
 ## License

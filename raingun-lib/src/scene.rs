@@ -1,6 +1,6 @@
 use bodies::*;
 use color::Color;
-use image::{ImageBuffer, Rgba};
+use image::{ImageBuffer, Rgba, Pixel};
 use lights::*;
 use material::*;
 use ray::Ray;
@@ -42,19 +42,31 @@ impl Scene {
     }
 
     pub fn render(&self, width: u32, height: u32) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
-        let mut image = ImageBuffer::new(width, height);
-        let background = self.default_color.rgba();
+        use rayon::prelude::*;
 
-        for (x, y, pixel) in image.enumerate_pixels_mut() {
-            let ray = Ray::create_prime(x, y, self, width, height);
-            *pixel = if let Some(intersection) = self.trace(&ray) {
-                get_color(self, &ray, &intersection, 0).rgba()
-            } else {
-                background
-            };
+        let raw_colors: Vec<Color> = (0u32..width * height)
+            .into_par_iter()
+            .map(|i| {
+                     let y = i / width;
+                     let x = i - y * width;
+                     self.render_pixel(x, y, width, height)
+                 })
+            .collect();
+
+        let raw_image: Vec<u8> = raw_colors
+            .into_iter()
+            .flat_map(|c| c.rgba().channels().to_owned())
+            .collect();
+        ImageBuffer::from_raw(width, height, raw_image).unwrap()
+    }
+
+    fn render_pixel(&self, x: u32, y: u32, width: u32, height: u32) -> Color {
+        let ray = Ray::create_prime(x, y, self, width, height);
+        if let Some(intersection) = self.trace(&ray) {
+            get_color(self, &ray, &intersection, 0)
+        } else {
+            self.default_color
         }
-
-        image
     }
 }
 

@@ -4,6 +4,7 @@ version = "0.1.0"
 dependencies = [
  "cgmath 0.12.0 (git+https://github.com/Mange/cgmath?branch=serde-09)",
  "image 0.12.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rayon 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 0.9.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 0.9.12 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 extern crate image;
 
 extern crate time;
-use time::PreciseTime;
+use time::{PreciseTime, Duration};
 
 #[macro_use]
 extern crate clap;
@@ -77,11 +77,33 @@ fn main() {
         .parse()
         .unwrap_or(DEFAULT_HEIGHT);
 
-    let start = PreciseTime::now();
+    let render_start = PreciseTime::now();
     let image = scene.render(width, height);
-    let end = PreciseTime::now();
-
-    println!("Took {} to render scene", start.to(end));
+    let render_end = PreciseTime::now();
 
     image.save(&output_path).expect("Could not encode image");
+    let write_end = PreciseTime::now();
+
+    println!("{input}\t→\t{output}\t({render_duration} render, {write_duration} write)",
+             input = input_path.to_string_lossy(),
+             output = output_path.to_string_lossy(),
+             render_duration = format_duration(render_start.to(render_end)),
+             write_duration = format_duration(render_end.to(write_end)));
+}
+
+fn format_duration(duration: Duration) -> String {
+    const ONE_MINUTE: i64 = 1000 * 60;
+
+    let milliseconds = duration.num_milliseconds();
+    match milliseconds {
+        0...800 => format!("{}ms", milliseconds),
+        800...ONE_MINUTE => format!("{:.2}s", milliseconds as f32 / 1000.0),
+        n if n < 0 => unreachable!("Time travel discovered. I'm happy we crashed!"),
+        _ => {
+            let minutes = milliseconds / ONE_MINUTE;
+            let ms_left = milliseconds - minutes * ONE_MINUTE;
+
+            format!("{}m {:.2}s", minutes, ms_left as f32 / 1000.0)
+        }
+    }
 }

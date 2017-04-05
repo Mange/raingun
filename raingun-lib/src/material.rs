@@ -1,9 +1,10 @@
+use serde;
 use image::{DynamicImage, GenericImage};
 use std::fmt;
 
 use color::Color;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct Material {
     pub coloration: Coloration,
     pub albedo: f32,
@@ -16,20 +17,36 @@ pub struct TextureCoords {
     pub y: f32,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub enum Coloration {
     Color(Color),
     Texture(Texture),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize)]
 pub struct Texture {
+    #[serde(deserialize_with = "load_texture")]
     pub image: DynamicImage,
     pub x_offset: f32,
     pub y_offset: f32,
 }
 
-#[derive(Clone, Copy, Debug)]
+fn load_texture<D>(deserializer: D) -> Result<DynamicImage, D::Error>
+    where D: serde::Deserializer
+{
+    use image;
+    use serde::de::Error;
+    use serde::Deserialize;
+
+    let path_string = String::deserialize(deserializer)?;
+    image::open(&path_string).map_err(|err| {
+                                         Error::custom(format!("Could not load texture file {}: {}",
+                                                               path_string,
+                                                               err))
+                                     })
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
 pub enum Surface {
     Diffuse,
     Reflecting { reflectivity: f32 },

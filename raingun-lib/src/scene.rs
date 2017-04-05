@@ -11,14 +11,30 @@ use super::SHADOW_BIAS;
 
 use std::f32::consts::PI;
 
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, default, rename_all = "camelCase")]
 pub struct Scene {
     pub width: u32,
     pub height: u32,
     pub fov: f64,
+    pub default_color: Color,
+    pub max_recursion_depth: u32,
     pub bodies: Vec<Body>,
     pub lights: Vec<Light>,
-    pub max_recursion_depth: u32,
-    pub default_color: Color,
+}
+
+impl Default for Scene {
+    fn default() -> Scene {
+        Scene {
+            width: 800,
+            height: 600,
+            fov: 90.0,
+            default_color: Color::default(),
+            max_recursion_depth: 10,
+            lights: Vec::default(),
+            bodies: Vec::default(),
+        }
+    }
 }
 
 impl Scene {

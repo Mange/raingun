@@ -6,18 +6,21 @@ use cgmath::prelude::*;
 
 use std::f32::consts::PI;
 
+#[derive(Debug, Clone, Deserialize)]
 pub struct Sphere {
     pub center: Point3,
     pub radius: f64,
     pub material: Material,
 }
 
+#[derive(Debug, Clone, Deserialize)]
 pub struct Plane {
     pub origin: Point3,
     pub normal: Vector3,
     pub material: Material,
 }
 
+#[derive(Debug, Clone, Deserialize)]
 pub enum Body {
     Sphere(Sphere),
     Plane(Plane),

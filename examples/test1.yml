@@ -1,0 +1,91 @@
+---
+defaultColor: "#667fff"
+lights:
+  - Directional:
+      direction:
+        x: 0.4
+        y: -1.0
+        z: -0.9
+      color: "#ffffee"
+      intensity: 7.0
+
+  - Spherical:
+      position: [-6.0, 3.2, -5.0]
+      color: "#ee0077"
+      intensity: 4000.0
+
+  - Spherical:
+      position:
+        x: 30.0
+        y: 20.0
+        z: -30.0
+      color: "#ffffee"
+      intensity: 15000.0
+
+bodies:
+  - Plane:
+      origin: [0.0, -2.0, -5.0]
+      normal: [0.0, -1.0, 0.0]
+      material:
+        coloration:
+          Texture:
+            image: "./textures/clay-ground-seamless.jpg"
+            x_offset: 0.0
+            y_offset: 0.0
+        albedo: 0.15
+        surface: Diffuse
+  - Plane:
+      origin: [0.0, 0.0, -40.0]
+      normal: [0.0, 0.0, -1.0]
+      material:
+        coloration:
+          Color: "#6677ff"
+        albedo: 0.9
+        surface:
+          Diffuse:
+
+  - Sphere:
+      center: [0.0, 0.0, -5.0]
+      radius: 1.0
+      material:
+        coloration:
+          Texture:
+            image: "./textures/land_ocean_ice_cloud_2048.jpg"
+            x_offset: 0.9
+            y_offset: 0.0
+        albedo: 0.6
+        surface:
+          Diffuse:
+
+  - Sphere:
+      center: [-10.0, 3.0, -15.2]
+      radius: 5.0
+      material:
+        coloration:
+          Color: "#ffffff"
+        albedo: 0.5
+        surface:
+          Reflecting:
+            reflectivity: 0.75
+
+  - Sphere:
+      center: [0.0, 3.7, -8.2]
+      radius: 2.0
+      material:
+        coloration:
+          Color: "#ffffee"
+        albedo: 0.5
+        surface:
+          Diffuse:
+
+  - Sphere:
+      center: [2.0, 1.0, -6.0]
+      radius: 1.5
+      material:
+        coloration:
+          Color: "#fff7f7"
+        albedo: 0.18
+        surface:
+          Refractive:
+            index: 1.33 # Water at 20 ℃
+            transparency: 0.8

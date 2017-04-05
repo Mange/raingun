@@ -1,6 +1,7 @@
 use std::ops::{Add, Mul};
 
 use image::{Pixel, Rgba};
+use serde;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Color {
@@ -107,6 +108,54 @@ impl<'a> Mul<f32> for &'a Color {
 
     fn mul(self, other: f32) -> Color {
         (*self) * other
+    }
+}
+
+impl ::std::str::FromStr for Color {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Color, String> {
+        if s.len() == "#123456".len() && s.starts_with("#") {
+            if let Ok(num) = u64::from_str_radix(&s[1..], 16) {
+                let red = ((num & 0xff0000) >> 16) as f32;
+                let grn = ((num & 0x00ff00) >> 8) as f32;
+                let blu = ((num & 0x0000ff) >> 0) as f32;
+
+                return Ok(Color::new(red / 255.0, grn / 255.0, blu / 255.0));
+            }
+        }
+
+        Err(format!("{} is not a valid color", s))
+    }
+}
+
+struct ColorVisitor;
+
+impl serde::de::Visitor for ColorVisitor {
+    type Value = Color;
+
+    fn expecting(&self, formatter: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        formatter.write_str("a string of a simple hex color (#000000 - #ffffff)")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Color, E>
+        where E: serde::de::Error
+    {
+        value.parse().map_err(|error| E::custom(error))
+    }
+
+    fn visit_string<E>(self, value: String) -> Result<Color, E>
+        where E: serde::de::Error
+    {
+        value.parse().map_err(|error| E::custom(error))
+    }
+}
+
+impl serde::Deserialize for Color {
+    fn deserialize<D>(deserializer: D) -> Result<Color, D::Error>
+        where D: serde::Deserializer
+    {
+        deserializer.deserialize_string(ColorVisitor)
     }
 }
 

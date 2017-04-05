@@ -5,18 +5,21 @@ use cgmath::prelude::*;
 use std::f32::consts::PI;
 use std::f64::INFINITY;
 
+#[derive(Debug, Copy, Clone, Deserialize)]
 pub struct DirectionalLight {
     pub direction: Vector3,
     pub color: Color,
     pub intensity: f32,
 }
 
+#[derive(Debug, Copy, Clone, Deserialize)]
 pub struct SphericalLight {
     pub position: Point3,
     pub color: Color,
     pub intensity: f32,
 }
 
+#[derive(Debug, Copy, Clone, Deserialize)]
 pub enum Light {
     Directional(DirectionalLight),
     Spherical(SphericalLight),

@@ -4,5 +4,7 @@ version = "0.1.0"
 authors = ["Magnus Bergmark <magnus.bergmark@gmail.com>"]
 
 [dependencies]
+cgmath = { git = "https://github.com/Mange/cgmath", branch = "serde-09", default-features = false, features = ["eders"] }
 image = "0.12"
-cgmath = "0.12"
+serde = "0.9"
+serde_derive = "0.9"

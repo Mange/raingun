@@ -7,7 +7,10 @@ version = "0.1.0"
 authors = ["Magnus Bergmark <magnus.bergmark@gmail.com>"]
 
 [dependencies]
-image = "0.12"
-time = "0.1"
-clap = "2.22"
 raingun-lib = { path = "raingun-lib" }
+clap = "2.22"
+image = "0.12"
+serde = "0.9"
+serde_derive = "0.9"
+serde_yaml = "0.6"
+time = "0.1"

@@ -1,0 +1,48 @@
+---
+defaultColor: "#555555"
+lights:
+  - Directional:
+      direction:
+        x: 0.4
+        y: -1.0
+        z: -0.9
+      color: "#ffffee"
+      intensity: 7.0
+
+  - Spherical:
+      position: [-6.0, 3.2, -5.0]
+      color: "#ee0077"
+      intensity: 4000.0
+
+bodies:
+  - Plane:
+      origin: [0.0, -2.0, -5.0]
+      normal: [0.0, -1.0, 0.0]
+      material:
+        coloration:
+          Color: "#ffff00"
+        albedo: 0.15
+        surface: Diffuse
+
+  - Disk:
+      origin: [-5.0, -1.2, -5.0]
+      normal: [0.0, 0.0, -1.0]
+      radius: 0.3
+      material:
+        coloration:
+          Color: "#00ff00"
+        albedo: 0.9
+        surface:
+          Diffuse:
+
+  - Disk:
+      origin: [1.0, 3.0, -6.0]
+      normal: [0.0, 0.2, -0.7]
+      radius: 4.0
+      material:
+        coloration:
+          Color: "#ff0000"
+        albedo: 0.7
+        surface:
+          Reflecting:
+            reflectivity: 0.8

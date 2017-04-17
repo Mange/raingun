@@ -21,9 +21,18 @@ pub struct Plane {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct Disk {
+    pub origin: Point3,
+    pub normal: Vector3,
+    pub radius: f64,
+    pub material: Material,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub enum Body {
     Sphere(Sphere),
     Plane(Plane),
+    Disk(Disk),
 }
 
 impl Body {
@@ -31,6 +40,7 @@ impl Body {
         match *self {
             Body::Sphere(ref sphere) => &sphere.material,
             Body::Plane(ref plane) => &plane.material,
+            Body::Disk(ref disk) => &disk.material,
         }
     }
 
@@ -147,11 +157,55 @@ impl Intersectable for Plane {
     }
 }
 
+impl Intersectable for Disk {
+    fn intersect(&self, ray: &Ray) -> Option<f64> {
+        let denominator = self.normal.dot(ray.direction);
+        if denominator > 1e-6 {
+            let v = self.origin - ray.origin;
+            let distance = v.dot(self.normal) / denominator;
+            if distance >= 0.0 {
+                // Ray intersects plane, but does it intersect within the radius?
+                let hit_point = ray.origin + ray.direction * distance;
+                let v = hit_point - self.origin;
+                let d2 = v.dot(v);
+                // TODO: Figure out a way of storing a precomputed self.radius_squared to optimize
+                // away the sqrt() call.
+                if d2.sqrt() < self.radius {
+                    return Some(distance);
+                }
+            }
+        }
+
+        None
+    }
+
+    fn surface_normal(&self, _hit_point: &Point3) -> Vector3 {
+        -self.normal
+    }
+
+    fn texture_coords(&self, hit_point: &Point3) -> TextureCoords {
+        let mut x_axis = self.normal.cross(Vector3::unit_z());
+
+        if x_axis.magnitude2() == 0.0 {
+            x_axis = self.normal.cross(Vector3::unit_y());
+        }
+
+        let y_axis = self.normal.cross(x_axis);
+
+        let hit_vec = hit_point - self.origin;
+        TextureCoords {
+            x: hit_vec.dot(x_axis) as f32,
+            y: hit_vec.dot(y_axis) as f32,
+        }
+    }
+}
+
 impl Intersectable for Body {
     fn intersect(&self, ray: &Ray) -> Option<f64> {
         match *self {
             Body::Sphere(ref sphere) => sphere.intersect(ray),
             Body::Plane(ref plane) => plane.intersect(ray),
+            Body::Disk(ref disk) => disk.intersect(ray),
         }
     }
 
@@ -159,6 +213,7 @@ impl Intersectable for Body {
         match *self {
             Body::Sphere(ref sphere) => sphere.surface_normal(hit_point),
             Body::Plane(ref plane) => plane.surface_normal(hit_point),
+            Body::Disk(ref disk) => disk.surface_normal(hit_point),
         }
     }
 
@@ -166,6 +221,7 @@ impl Intersectable for Body {
         match *self {
             Body::Sphere(ref sphere) => sphere.texture_coords(hit_point),
             Body::Plane(ref plane) => plane.texture_coords(hit_point),
+            Body::Disk(ref disk) => disk.texture_coords(hit_point),
         }
     }
 }

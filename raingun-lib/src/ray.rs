@@ -5,9 +5,35 @@ use cgmath::prelude::*;
 pub struct Ray {
     pub origin: Point3,
     pub direction: Vector3,
+
+    // Inverted direction is sometimes used to calculate intersections, so pre-calculate it to
+    // optimize those checks.
+    pub inverted_direction: Vector3,
+
+    // This is a special structure for AABB boxes intersection checks. As AABB boxes (e.g. hit
+    // boxes) will be very very common, it is worth pre-calculating some things for them and store
+    // them inside the rays.
+    //
+    // What it represents is [x, y, z] signs, where the sign is either 0 or 1. It's 0 when the
+    // direction is negative or zero in that axis, or 1 if the direction is positive.
+    pub signs: [usize; 3],
 }
 
 impl Ray {
+    pub fn new(origin: Point3, direction: Vector3) -> Ray {
+        let invdir = 1.0 / direction;
+        let x_sign = if invdir.x < 0.0 { 1 } else { 0 };
+        let y_sign = if invdir.y < 0.0 { 1 } else { 0 };
+        let z_sign = if invdir.z < 0.0 { 1 } else { 0 };
+
+        Ray {
+            origin: origin,
+            direction: direction,
+            inverted_direction: invdir,
+            signs: [x_sign, y_sign, z_sign],
+        }
+    }
+
     pub fn create_prime(x: u32, y: u32, scene: &Scene, width: u32, height: u32) -> Ray {
         // Represent the camera's sensor with -1.0 at 0,0 and 1.0 at width,height.
         // Then adjust for aspect ratio and FoV
@@ -22,18 +48,15 @@ impl Ray {
                        fov_adjustment;
         let sensor_y = (1.0 - ((y as f64 + 0.5) / height as f64) * 2.0) * fov_adjustment;
 
-        Ray {
-            origin: Point3::origin(),
-            // Ray direction is straight into image (z = -1.0)
-            direction: Vector3::new(sensor_x, sensor_y, -1.0).normalize(),
-        }
+        // Ray direction is straight into image (z = -1.0)
+        let direction = Vector3::new(sensor_x, sensor_y, -1.0).normalize();
+        Ray::new(Point3::origin(), direction)
     }
 
     pub fn create_reflection(normal: Vector3, incident: Vector3, intersection: Point3) -> Ray {
-        Ray {
-            origin: intersection + (normal * SHADOW_BIAS),
-            direction: incident - (2.0 * incident.dot(normal) * normal),
-        }
+        let origin = intersection + (normal * SHADOW_BIAS);
+        let direction = incident - (2.0 * incident.dot(normal) * normal);
+        Ray::new(origin, direction)
     }
 
     pub fn create_transmission(normal: Vector3,
@@ -63,10 +86,22 @@ impl Ray {
         if k < 0.0 {
             None
         } else {
-            Some(Ray {
-                     origin: intersection + (ref_n * -bias),
-                     direction: (incident + i_dot_n * ref_n) * eta - ref_n * k.sqrt(),
-                 })
+            let origin = intersection + (ref_n * -bias);
+            let direction = (incident + i_dot_n * ref_n) * eta - ref_n * k.sqrt();
+
+            Some(Ray::new(origin, direction))
         }
+    }
+
+    pub fn x_sign(&self) -> usize {
+        self.signs[0]
+    }
+
+    pub fn y_sign(&self) -> usize {
+        self.signs[1]
+    }
+
+    pub fn z_sign(&self) -> usize {
+        self.signs[2]
     }
 }

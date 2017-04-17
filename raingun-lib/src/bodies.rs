@@ -29,10 +29,17 @@ pub struct Disk {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct AABB {
+    pub bounds: [Point3; 2],
+    pub material: Material,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub enum Body {
     Sphere(Sphere),
     Plane(Plane),
     Disk(Disk),
+    AABB(AABB),
 }
 
 impl Body {
@@ -41,6 +48,7 @@ impl Body {
             Body::Sphere(ref sphere) => &sphere.material,
             Body::Plane(ref plane) => &plane.material,
             Body::Disk(ref disk) => &disk.material,
+            Body::AABB(ref aabb) => &aabb.material,
         }
     }
 
@@ -200,12 +208,69 @@ impl Intersectable for Disk {
     }
 }
 
+impl Intersectable for AABB {
+    fn intersect(&self, ray: &Ray) -> Option<f64> {
+        let mut tmin = (self.bounds[ray.x_sign()].x - ray.origin.x) * ray.inverted_direction.x;
+        let mut tmax = (self.bounds[1 - ray.x_sign()].x - ray.origin.x) * ray.inverted_direction.x;
+
+        let tymin = (self.bounds[ray.y_sign()].y - ray.origin.y) * ray.inverted_direction.y;
+        let tymax = (self.bounds[1 - ray.y_sign()].y - ray.origin.y) * ray.inverted_direction.y;
+
+        if tmin > tymax || tymin > tmax {
+            return None;
+        }
+
+        if tymin > tmin {
+            tmin = tymin;
+        }
+        if tymax < tmax {
+            tmax = tymax;
+        }
+
+        let tzmin = (self.bounds[ray.z_sign()].z - ray.origin.z) * ray.inverted_direction.z;
+        let tzmax = (self.bounds[1 - ray.z_sign()].z - ray.origin.z) * ray.inverted_direction.z;
+
+        if tmin > tzmax || tzmin > tmax {
+            return None;
+        }
+
+        if tzmin > tmin {
+            tmin = tzmin;
+        }
+
+        if tzmax < tmax {
+            tmax = tzmax;
+        }
+
+        let mut distance = tmin;
+        if distance < 0.0 {
+            distance = tmax;
+            if distance < 0.0 {
+                return None;
+            }
+        }
+
+        Some(distance)
+    }
+
+    fn surface_normal(&self, _hit_point: &Point3) -> Vector3 {
+        // TODO: Can we calculate this somehow?
+        Vector3::unit_z()
+    }
+
+    fn texture_coords(&self, _hit_point: &Point3) -> TextureCoords {
+        // TODO: Can we calculate this somehow?
+        TextureCoords { x: 0.0, y: 0.0 }
+    }
+}
+
 impl Intersectable for Body {
     fn intersect(&self, ray: &Ray) -> Option<f64> {
         match *self {
             Body::Sphere(ref sphere) => sphere.intersect(ray),
             Body::Plane(ref plane) => plane.intersect(ray),
             Body::Disk(ref disk) => disk.intersect(ray),
+            Body::AABB(ref aabb) => aabb.intersect(ray),
         }
     }
 
@@ -214,6 +279,7 @@ impl Intersectable for Body {
             Body::Sphere(ref sphere) => sphere.surface_normal(hit_point),
             Body::Plane(ref plane) => plane.surface_normal(hit_point),
             Body::Disk(ref disk) => disk.surface_normal(hit_point),
+            Body::AABB(ref aabb) => aabb.surface_normal(hit_point),
         }
     }
 
@@ -222,6 +288,7 @@ impl Intersectable for Body {
             Body::Sphere(ref sphere) => sphere.texture_coords(hit_point),
             Body::Plane(ref plane) => plane.texture_coords(hit_point),
             Body::Disk(ref disk) => disk.texture_coords(hit_point),
+            Body::AABB(ref aabb) => aabb.texture_coords(hit_point),
         }
     }
 }

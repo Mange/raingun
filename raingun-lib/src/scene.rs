@@ -144,10 +144,8 @@ fn shade_diffuse(scene: &Scene,
         // by a body.
         // Place origin ever so slightly above the hitpoint to avoid floating point errors where the
         // origin is inside the body itself, so the ray intersects with itself.
-        let shadow_ray = Ray {
-            origin: hit_point + (surface_normal * SHADOW_BIAS),
-            direction: direction_to_light,
-        };
+        let shadow_ray = Ray::new(hit_point + (surface_normal * SHADOW_BIAS),
+                                  direction_to_light);
         let shadow_intersection = scene.trace(&shadow_ray);
 
         let in_light = match shadow_intersection {

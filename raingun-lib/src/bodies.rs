@@ -208,6 +208,32 @@ impl Intersectable for Disk {
     }
 }
 
+impl AABB {
+    // TODO: Can we precompute this somewhere?
+    pub fn width_x(&self) -> f64 {
+        self.bounds[1].x - self.bounds[0].x
+    }
+
+    // TODO: Can we precompute this somewhere?
+    pub fn width_y(&self) -> f64 {
+        self.bounds[1].y - self.bounds[0].y
+    }
+
+    // TODO: Can we precompute this somewhere?
+    pub fn width_z(&self) -> f64 {
+        self.bounds[1].z - self.bounds[0].z
+    }
+
+    // TODO: Can we precompute this somewhere?
+    pub fn center(&self) -> Point3 {
+        Point3 {
+            x: (self.bounds[0].x + self.width_x() / 2.0),
+            y: (self.bounds[0].y + self.width_y() / 2.0),
+            z: (self.bounds[0].z + self.width_z() / 2.0),
+        }
+    }
+}
+
 impl Intersectable for AABB {
     fn intersect(&self, ray: &Ray) -> Option<f64> {
         let mut tmin = (self.bounds[ray.x_sign()].x - ray.origin.x) * ray.inverted_direction.x;
@@ -253,9 +279,30 @@ impl Intersectable for AABB {
         Some(distance)
     }
 
-    fn surface_normal(&self, _hit_point: &Point3) -> Vector3 {
-        // TODO: Can we calculate this somehow?
-        Vector3::unit_z()
+    fn surface_normal(&self, hit_point: &Point3) -> Vector3 {
+        let local_point = hit_point - self.center();
+        let mut normal = Vector3::zero();
+        let mut distance;
+        let mut min = ::std::f64::MAX;
+
+        distance = (self.width_x() - local_point.x.abs()).abs();
+        if distance < min {
+            min = distance;
+            normal = Vector3::unit_x() * local_point.x.signum();
+        }
+
+        distance = (self.width_y() - local_point.y.abs()).abs();
+        if distance < min {
+            min = distance;
+            normal = Vector3::unit_y() * local_point.y.signum();
+        }
+
+        distance = (self.width_z() - local_point.z.abs()).abs();
+        if distance < min {
+            normal = Vector3::unit_z() * local_point.z.signum();
+        }
+
+        normal
     }
 
     fn texture_coords(&self, _hit_point: &Point3) -> TextureCoords {

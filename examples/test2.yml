@@ -48,17 +48,22 @@ bodies:
             reflectivity: 0.8
 
   - AABB:
+      # Elements in the first bound must be <= elements in the second one.
+      # This is valid:
+      #   - [1, 2, 3]
+      #   - [2, 3, 4]
+      # This is not:
+      #   - [1, 2, 3]
+      #   - [2, 3, 2]
       bounds:
         # One by four by nine
         # depth 0.2, width 0.8, height 1.6
         # x 0.8, y 1.6, z 0.2
-        - [2.0, -2.0, -3.0]
-        - [2.8, -0.4, -3.2]
+        - [2.0, -2.0, -3.2]
+        - [2.8, -0.4, -3.0]
       material:
         coloration:
           Color: "#1111ff"
         albedo: 0.7
         surface:
-          Refractive:
-            transparency: 0.8
-            index: 1.6
+          Diffuse:

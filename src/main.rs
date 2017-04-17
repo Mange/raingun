@@ -37,6 +37,14 @@ fn construct_app<'a, 'b>() -> clap::App<'a, 'b> {
              .help("Renders in 1080 (HD) resolution. Explicit width/height overrides.")
              .overrides_with("4k")
         )
+        .arg(Arg::with_name("preview")
+             .long("preview")
+             .help("Renders in 800x600 and lower quality settings.")
+             .overrides_with("4k")
+             .overrides_with("hd")
+             .overrides_with("width")
+             .overrides_with("height")
+        )
         .arg(Arg::with_name("output")
                  .short("o")
                  .long("output")
@@ -56,6 +64,7 @@ fn construct_app<'a, 'b>() -> clap::App<'a, 'b> {
 struct RenderOptions {
     width: u32,
     height: u32,
+    max_recursion_depth: Option<u32>,
 }
 
 impl Default for RenderOptions {
@@ -63,6 +72,7 @@ impl Default for RenderOptions {
         RenderOptions {
             width: 800,
             height: 600,
+            max_recursion_depth: None,
         }
     }
 }
@@ -71,7 +81,9 @@ impl<'a, 'b> From<&'b clap::ArgMatches<'a>> for RenderOptions {
     fn from(matches: &clap::ArgMatches<'a>) -> RenderOptions {
         let mut options = RenderOptions::default();
 
-        if matches.is_present("hd") {
+        if matches.is_present("preview") {
+            options.max_recursion_depth = Some(4);
+        } else if matches.is_present("hd") {
             options.width = 1920;
             options.height = 1080;
         } else if matches.is_present("4k") {
@@ -112,7 +124,15 @@ fn main() {
     };
 
     let file = File::open(input_path).expect("Could not open input file");
-    let scene: Scene = serde_yaml::from_reader(&file).expect("Could not load YAML");
+    let scene = {
+        let mut scene: Scene = serde_yaml::from_reader(&file).expect("Could not load YAML");
+        if let Some(limit) = render_options.max_recursion_depth {
+            if limit < scene.max_recursion_depth {
+                scene.max_recursion_depth = limit;
+            }
+        }
+        scene
+    };
 
     let render_start = PreciseTime::now();
     let image = scene.render(render_options.width, render_options.height);
@@ -180,5 +200,14 @@ mod test {
         let render_options = RenderOptions::from(&matches);
         assert_eq!(render_options.width, 2000);
         assert_eq!(render_options.height, 1080);
+    }
+
+    #[test]
+    fn it_parses_preview_argument() {
+        let matches = parse_arguments(&["x", "--hd", "--width", "2000", "--preview", "file"]);
+        let render_options = RenderOptions::from(&matches);
+        assert_eq!(render_options.width, 800);
+        assert_eq!(render_options.height, 600);
+        assert_eq!(render_options.max_recursion_depth, Some(4));
     }
 }

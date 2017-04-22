@@ -130,8 +130,19 @@ fn start_window_thread(shared_image: Arc<Mutex<ImageBuffer>>,
         use piston_window::*;
         let mut window: PistonWindow = WindowSettings::new("Raingun", (width, height))
             .exit_on_esc(true)
+            .title(String::from("Raingun preview"))
+            .vsync(true)
+            .resizable(false) // TODO: Resize and render image as large as possible
+            .decorated(true)
             .build()
             .expect("Could not build PistonWindow");
+
+        window.set_ups(15); // Try to update 15 times per second
+        window.set_ups_reset(1); // Skip updating when falling behind
+
+        // Don't try to render too fast. We know nothing exciting happens while we wait for an
+        // update.
+        window.set_max_fps(30);
 
         let mut texture = {
             let image = shared_image.lock().unwrap();
@@ -139,21 +150,28 @@ fn start_window_thread(shared_image: Arc<Mutex<ImageBuffer>>,
             Texture::from_image(&mut window.factory, &image, &texture_settings).unwrap()
         };
 
-        while let Some(e) = window.next() {
-            // Don't block until we get a lock; instead just skip this frame update if mutex is busy.
-            if let Ok(image) = shared_image.try_lock() {
-                texture.update(&mut window.encoder, &image).unwrap();
+        while let Some(event) = window.next() {
+            match event {
+                Input::Update(_) => {
+                    if *close_condition.read().unwrap() {
+                        window.set_should_close(true);
+                        break;
+                    }
+
+                    let image = shared_image.lock().unwrap();
+                    texture.update(&mut window.encoder, &image).unwrap();
+                }
+                Input::Render(_) => {
+                    window.draw_2d(&event, |context, graphics| {
+                        clear([0.0, 0.0, 0.0, 1.0], graphics);
+                        image(&texture, context.view, graphics);
+                    });
+                }
+                _ => {
+                    // Do nothing
+                }
             }
 
-            window.draw_2d(&e, |context, graphics| {
-                clear([0.0, 0.0, 0.0, 1.0], graphics);
-                image(&texture, context.view, graphics);
-            });
-
-            if *close_condition.read().unwrap() {
-                window.set_should_close(true);
-                break;
-            }
         }
     })
 }

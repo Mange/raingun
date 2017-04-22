@@ -133,8 +133,9 @@ fn start_window_thread(shared_image: Arc<Mutex<ImageBuffer>>,
             .exit_on_esc(true)
             .title(String::from("Raingun preview"))
             .vsync(true)
-            .resizable(false) // TODO: Resize and render image as large as possible
+            .resizable(true)
             .decorated(true)
+            .controllers(false) // Don't look for gamepad events
             .build()
             .expect("Could not build PistonWindow");
 
@@ -151,28 +152,34 @@ fn start_window_thread(shared_image: Arc<Mutex<ImageBuffer>>,
             Texture::from_image(&mut window.factory, &image, &texture_settings).unwrap()
         };
 
-        while let Some(event) = window.next() {
-            match event {
-                Input::Update(_) => {
-                    if *close_condition.read() {
-                        window.set_should_close(true);
-                        break;
-                    }
+        let half_width = (width / 2) as f64;
+        let half_height = (height / 2) as f64;
 
-                    let image = shared_image.lock();
-                    texture.update(&mut window.encoder, &image).unwrap();
+        while let Some(event) = window.next() {
+            if let Some(_) = event.update_args() {
+                if *close_condition.read() {
+                    window.set_should_close(true);
+                    break;
                 }
-                Input::Render(_) => {
-                    window.draw_2d(&event, |context, graphics| {
-                        clear([0.0, 0.0, 0.0, 1.0], graphics);
-                        image(&texture, context.view, graphics);
-                    });
-                }
-                _ => {
-                    // Do nothing
-                }
+
+                let image = shared_image.lock();
+                texture.update(&mut window.encoder, &image).unwrap();
             }
 
+            if let Some(r) = event.render_args() {
+                window.draw_2d(&event, |context, graphics| {
+                    clear([0.0, 0.0, 0.0, 1.0], graphics);
+
+                    // Center image inside window
+                    let (x, y) = ((r.width / 2) as f64, (r.height / 2) as f64);
+                    let transform = context
+                        .transform
+                        .trans(x, y)
+                        .trans(-half_width, -half_height);
+
+                    image(&texture, transform, graphics);
+                });
+            }
         }
     })
 }

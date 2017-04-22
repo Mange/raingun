@@ -152,14 +152,15 @@ fn start_window_thread(shared_image: Arc<Mutex<ImageBuffer>>,
             Texture::from_image(&mut window.factory, &image, &texture_settings).unwrap()
         };
 
-        let half_width = (width / 2) as f64;
-        let half_height = (height / 2) as f64;
+        let width_f = width as f64;
+        let height_f = height as f64;
+        let half_width = width_f / 2.0;
+        let half_height = height_f / 2.0;
 
         while let Some(event) = window.next() {
             if let Some(_) = event.update_args() {
                 if *close_condition.read() {
                     window.set_should_close(true);
-                    break;
                 }
 
                 let image = shared_image.lock();
@@ -171,10 +172,15 @@ fn start_window_thread(shared_image: Arc<Mutex<ImageBuffer>>,
                     clear([0.0, 0.0, 0.0, 1.0], graphics);
 
                     // Center image inside window
-                    let (x, y) = ((r.width / 2) as f64, (r.height / 2) as f64);
+                    let (center_x, center_y) = ((r.width / 2) as f64, (r.height / 2) as f64);
+
+                    // Resize image to show as much as possible on the screen
+                    let ratio = (r.width as f64 / width_f).min(r.height as f64 / height_f);
+
                     let transform = context
                         .transform
-                        .trans(x, y)
+                        .trans(center_x, center_y)
+                        .scale(ratio, ratio)
                         .trans(-half_width, -half_height);
 
                     image(&texture, transform, graphics);

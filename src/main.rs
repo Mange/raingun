@@ -1,9 +1,9 @@
 use std::path::{Path, PathBuf};
 
 extern crate image;
-
+extern crate parking_lot;
+extern crate piston_window;
 extern crate time;
-use time::{PreciseTime, Duration};
 
 #[macro_use]
 extern crate clap;
@@ -14,6 +14,9 @@ use raingun::Scene;
 
 extern crate serde_yaml;
 use std::fs::File;
+
+mod render;
+use render::*;
 
 fn construct_app<'a, 'b>() -> clap::App<'a, 'b> {
     app_from_crate!()
@@ -39,6 +42,10 @@ fn construct_app<'a, 'b>() -> clap::App<'a, 'b> {
         )
         .arg(Arg::with_name("preview")
              .long("preview")
+             .help("Shows render progress in a window. Window closes after rendering has finished.")
+        )
+        .arg(Arg::with_name("draft")
+             .long("draft")
              .help("Renders in 800x600 and lower quality settings.")
              .overrides_with("4k")
              .overrides_with("hd")
@@ -60,28 +67,11 @@ fn construct_app<'a, 'b>() -> clap::App<'a, 'b> {
                  .help("The scene definition file, in YAML format."))
 }
 
-
-struct RenderOptions {
-    width: u32,
-    height: u32,
-    max_recursion_depth: Option<u32>,
-}
-
-impl Default for RenderOptions {
-    fn default() -> RenderOptions {
-        RenderOptions {
-            width: 800,
-            height: 600,
-            max_recursion_depth: None,
-        }
-    }
-}
-
 impl<'a, 'b> From<&'b clap::ArgMatches<'a>> for RenderOptions {
     fn from(matches: &clap::ArgMatches<'a>) -> RenderOptions {
         let mut options = RenderOptions::default();
 
-        if matches.is_present("preview") {
+        if matches.is_present("draft") {
             options.max_recursion_depth = Some(4);
         } else if matches.is_present("hd") {
             options.width = 1920;
@@ -134,34 +124,10 @@ fn main() {
         scene
     };
 
-    let render_start = PreciseTime::now();
-    let image = scene.render(render_options.width, render_options.height);
-    let render_end = PreciseTime::now();
-
-    image.save(&output_path).expect("Could not encode image");
-    let write_end = PreciseTime::now();
-
-    println!("{input}\t→\t{output}\t({render_duration} render, {write_duration} write)",
-             input = input_path.to_string_lossy(),
-             output = output_path.to_string_lossy(),
-             render_duration = format_duration(render_start.to(render_end)),
-             write_duration = format_duration(render_end.to(write_end)));
-}
-
-fn format_duration(duration: Duration) -> String {
-    const ONE_MINUTE: i64 = 1000 * 60;
-
-    let milliseconds = duration.num_milliseconds();
-    match milliseconds {
-        0...800 => format!("{}ms", milliseconds),
-        800...ONE_MINUTE => format!("{:.2}s", milliseconds as f32 / 1000.0),
-        n if n < 0 => unreachable!("Time travel discovered. I'm happy we crashed!"),
-        _ => {
-            let minutes = milliseconds / ONE_MINUTE;
-            let ms_left = milliseconds - minutes * ONE_MINUTE;
-
-            format!("{}m {:.2}s", minutes, ms_left as f32 / 1000.0)
-        }
+    if matches.is_present("preview") {
+        render_image_with_preview(&scene, &render_options, &input_path, &output_path);
+    } else {
+        render_image_without_preview(&scene, &render_options, &input_path, &output_path);
     }
 }
 
@@ -203,8 +169,8 @@ mod test {
     }
 
     #[test]
-    fn it_parses_preview_argument() {
-        let matches = parse_arguments(&["x", "--hd", "--width", "2000", "--preview", "file"]);
+    fn it_parses_draft_argument() {
+        let matches = parse_arguments(&["x", "--hd", "--width", "2000", "--draft", "file"]);
         let render_options = RenderOptions::from(&matches);
         assert_eq!(render_options.width, 800);
         assert_eq!(render_options.height, 600);

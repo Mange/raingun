@@ -6,6 +6,10 @@ use cgmath::prelude::*;
 
 use std::f32::consts::PI;
 
+fn is_close(a: f64, b: f64) -> bool {
+    (a - b).abs() < 1e-8
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Sphere {
     pub center: Point3,
@@ -268,41 +272,59 @@ impl Intersectable for AABB {
             tmax = tzmax;
         }
 
-        let mut distance = tmin;
-        if distance < 0.0 {
-            distance = tmax;
-            if distance < 0.0 {
-                return None;
-            }
+        if tmin >= 0.0 {
+            Some(tmin)
+        } else if tmax >= 0.0 {
+            Some(tmax)
+        } else {
+            None
         }
-
-        Some(distance)
     }
 
     fn surface_normal(&self, hit_point: &Point3) -> Vector3 {
-        let local_point = hit_point - self.center();
-        let mut normal = Vector3::zero();
-        let mut distance;
-        let mut min = ::std::f64::MAX;
+        /*
+        Determine the point of impact in relationship with the box, then calculate the axis with
+        the shortest distance from that point.
 
-        distance = (self.width_x() - local_point.x.abs()).abs();
-        if distance < min {
-            min = distance;
-            normal = Vector3::unit_x() * local_point.x.signum();
+        Imagine a 2D box with a hit point on one side. The point must be exactly on the boundary
+        somewhere. We can see which side it is by comparing the hit point to the box's corners.
+
+            y1            y1
+         x0 ┌─────────────┐ x1
+            │             │
+            │      C      │
+            │             │
+         x0 └───*─────────┘ x1
+           y0   ↓ N       y0
+
+            hit_x < x1
+            hit_x > x1
+            hit_y = y0
+            hit_y < y1
+
+        Since hit_y is = y0, then it must be on the lower X axis edge. We use the same principle in
+        3D.
+
+        Due to float errors, add a small factor to the comparisions.
+        */
+
+        if is_close(hit_point.x, self.bounds[0].x) {
+            -Vector3::unit_x()
+        } else if is_close(hit_point.x, self.bounds[1].x) {
+            Vector3::unit_x()
+        } else if is_close(hit_point.y, self.bounds[0].y) {
+            -Vector3::unit_y()
+        } else if is_close(hit_point.y, self.bounds[1].y) {
+            Vector3::unit_y()
+        } else if is_close(hit_point.z, self.bounds[0].z) {
+            -Vector3::unit_z()
+        } else if is_close(hit_point.z, self.bounds[1].z) {
+            Vector3::unit_z()
+        } else {
+            assert!(false, "Could not determine normal of point!");
+            // ¯\_(ツ)_/¯
+            Vector3::unit_x()
         }
-
-        distance = (self.width_y() - local_point.y.abs()).abs();
-        if distance < min {
-            min = distance;
-            normal = Vector3::unit_y() * local_point.y.signum();
-        }
-
-        distance = (self.width_z() - local_point.z.abs()).abs();
-        if distance < min {
-            normal = Vector3::unit_z() * local_point.z.signum();
-        }
-
-        normal
     }
 
     fn texture_coords(&self, _hit_point: &Point3) -> TextureCoords {

@@ -10,6 +10,7 @@ authors = ["Magnus Bergmark <magnus.bergmark@gmail.com>"]
 raingun-lib = { path = "raingun-lib" }
 clap = "2.23"
 image = "0.12"
+parking_lot = "0.4"
 piston_window = "0.64.0"
 serde = "0.9"
 serde_derive = "0.9"

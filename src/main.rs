@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 extern crate image;
+extern crate parking_lot;
 extern crate piston_window;
 extern crate time;
 

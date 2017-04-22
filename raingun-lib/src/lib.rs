@@ -1,5 +1,6 @@
 extern crate cgmath;
 extern crate image;
+extern crate parking_lot;
 extern crate rayon;
 extern crate serde;
 

@@ -45,8 +45,9 @@ pub fn render_image_stream(scene: &Scene,
                            height: u32,
                            channel_tx: Sender<RenderedPixel>)
                            -> () {
+    use std::sync::Arc;
+    use parking_lot::Mutex;
     use rayon::prelude::*;
-    use std::sync::{Arc, Mutex};
 
     let channel = Arc::new(Mutex::new(channel_tx));
 
@@ -60,7 +61,6 @@ pub fn render_image_stream(scene: &Scene,
 
             let receipt = channel
                 .lock()
-                .unwrap()
                 .send(RenderedPixel {
                           x: x,
                           y: y,

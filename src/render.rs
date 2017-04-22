@@ -16,13 +16,14 @@ can still send new pixel data to the channel.
 */
 use std::path::Path;
 use std::sync::mpsc::{channel, Receiver};
-use std::sync::{Mutex, Arc, RwLock};
+use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::thread;
 
 extern crate image;
 use image::Rgba;
 use time::{PreciseTime, Duration};
+use parking_lot::{Mutex, RwLock};
 
 use raingun::{Scene, RenderedPixel};
 
@@ -96,7 +97,7 @@ pub fn render_image_with_preview(scene: &Scene,
 
     // Store image buffer to output file when everything is done
     let write_end = {
-        let shared_image = shared_image.lock().expect("Image became corrupted");
+        let shared_image = shared_image.lock();
 
         shared_image
             .save(&output_path)
@@ -112,7 +113,7 @@ pub fn render_image_with_preview(scene: &Scene,
 
     // Exit
     {
-        let mut close = close_window_condition.write().unwrap();
+        let mut close = close_window_condition.write();
         *close = true;
     }
     collector_thread.join().unwrap();
@@ -145,7 +146,7 @@ fn start_window_thread(shared_image: Arc<Mutex<ImageBuffer>>,
         window.set_max_fps(30);
 
         let mut texture = {
-            let image = shared_image.lock().unwrap();
+            let image = shared_image.lock();
             let texture_settings = TextureSettings::new();
             Texture::from_image(&mut window.factory, &image, &texture_settings).unwrap()
         };
@@ -153,12 +154,12 @@ fn start_window_thread(shared_image: Arc<Mutex<ImageBuffer>>,
         while let Some(event) = window.next() {
             match event {
                 Input::Update(_) => {
-                    if *close_condition.read().unwrap() {
+                    if *close_condition.read() {
                         window.set_should_close(true);
                         break;
                     }
 
-                    let image = shared_image.lock().unwrap();
+                    let image = shared_image.lock();
                     texture.update(&mut window.encoder, &image).unwrap();
                 }
                 Input::Render(_) => {
@@ -187,7 +188,7 @@ fn start_collector_thread(channel_rx: Receiver<RenderedPixel>,
             let message = channel_rx.recv();
             match message {
                 Ok(rendered_pixel) => {
-                    let mut image = shared_image.lock().unwrap();
+                    let mut image = shared_image.lock();
                     image.put_pixel(rendered_pixel.x,
                                     rendered_pixel.y,
                                     rendered_pixel.color.rgba());

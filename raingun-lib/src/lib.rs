@@ -6,7 +6,6 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
-
 // TODO: Make this an attribute of the scene
 const SHADOW_BIAS: f64 = 1e-13;
 
@@ -14,6 +13,7 @@ mod bodies;
 mod color;
 mod lights;
 mod ray;
+mod rendering;
 mod scene;
 pub mod material;
 
@@ -22,6 +22,7 @@ pub use color::Color;
 pub use lights::{Light, DirectionalLight, SphericalLight};
 pub use ray::Ray;
 pub use scene::Scene;
+pub use rendering::RenderedPixel;
 pub use cgmath::prelude::*;
 
 pub type Point3 = cgmath::Point3<f64>;

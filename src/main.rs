@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+extern crate piston_window;
 extern crate image;
 
 extern crate time;
@@ -10,7 +11,7 @@ extern crate clap;
 use clap::Arg;
 
 extern crate raingun_lib as raingun;
-use raingun::Scene;
+use raingun::{Scene, RenderedPixel};
 
 extern crate serde_yaml;
 use std::fs::File;
@@ -39,6 +40,10 @@ fn construct_app<'a, 'b>() -> clap::App<'a, 'b> {
         )
         .arg(Arg::with_name("preview")
              .long("preview")
+             .help("Shows render progress in a window. Window closes after rendering has finished.")
+        )
+        .arg(Arg::with_name("draft")
+             .long("draft")
              .help("Renders in 800x600 and lower quality settings.")
              .overrides_with("4k")
              .overrides_with("hd")
@@ -81,7 +86,7 @@ impl<'a, 'b> From<&'b clap::ArgMatches<'a>> for RenderOptions {
     fn from(matches: &clap::ArgMatches<'a>) -> RenderOptions {
         let mut options = RenderOptions::default();
 
-        if matches.is_present("preview") {
+        if matches.is_present("draft") {
             options.max_recursion_depth = Some(4);
         } else if matches.is_present("hd") {
             options.width = 1920;
@@ -103,6 +108,168 @@ impl<'a, 'b> From<&'b clap::ArgMatches<'a>> for RenderOptions {
 
         options
     }
+}
+
+/*
+Preview window works with multiple threads:
+    - Render threads (multiple)
+        Renders one pixel at a time of the image.
+
+    - Collector thread (single)
+        Receives rendered pixels on the channel and puts them into an ImageBuffer.
+
+    - Window thread (single)
+        Opens a window and renders the ImageBuffer to it occasionally.
+
+The collected image will be locked using a Mutex and communication from render threads to the
+collector thread uses an async channel with "unlimited buffer". That means that even if the preview
+window has locked the imagebuffer and the collector cannot read the channels, the render threads
+can still send new pixel data to the channel.
+*/
+use std::sync::mpsc::{channel, Receiver};
+use std::sync::{Mutex, Arc, RwLock};
+use std::thread;
+use std::thread::JoinHandle;
+use image::Rgba;
+
+type ImageBuffer = image::ImageBuffer<Rgba<u8>, Vec<u8>>;
+
+fn render_image_without_preview(scene: &Scene,
+                                render_options: &RenderOptions,
+                                input_path: &Path,
+                                output_path: &Path) {
+
+    let render_start = PreciseTime::now();
+    let image = scene.render_image(render_options.width, render_options.height);
+    let render_end = PreciseTime::now();
+
+    image.save(&output_path).expect("Could not encode image");
+
+    let write_end = PreciseTime::now();
+
+    print_render_message(&input_path,
+                         &output_path,
+                         render_start.to(render_end),
+                         render_end.to(write_end));
+}
+
+fn render_image_with_preview(scene: &Scene,
+                             render_options: &RenderOptions,
+                             input_path: &Path,
+                             output_path: &Path) {
+    // Create shared image buffer
+    let shared_image: ImageBuffer = image::ImageBuffer::new(render_options.width,
+                                                            render_options.height);
+    let shared_image = Arc::new(Mutex::new(shared_image));
+
+    // Create render thread channel
+    let (channel_tx, channel_rx) = channel();
+
+    // Create window
+    let close_window_condition = Arc::new(RwLock::new(false));
+    let window_thread = start_window_thread(shared_image.clone(),
+                                            render_options,
+                                            close_window_condition.clone());
+
+    // Start collector thread
+    let collector_thread = start_collector_thread(channel_rx, shared_image.clone());
+
+    // Start rendering threads
+    let render_start = PreciseTime::now();
+    scene.streaming_render(render_options.width, render_options.height, channel_tx);
+    let render_end = PreciseTime::now();
+
+    // When done, close channel
+    //    ...on closed channel, close window and stop collector.
+    // (This happens in the other threads)
+
+    // Store image buffer to output file when everything is done
+    let write_end = {
+        let shared_image = shared_image.lock().expect("Image became corrupted");
+
+        shared_image
+            .save(&output_path)
+            .expect("Could not encode image");
+
+        PreciseTime::now()
+    };
+
+    print_render_message(&input_path,
+                         &output_path,
+                         render_start.to(render_end),
+                         render_end.to(write_end));
+
+    // Exit
+    {
+        let mut close = close_window_condition.write().unwrap();
+        *close = true;
+    }
+    collector_thread.join().unwrap();
+    window_thread.join().unwrap();
+}
+
+fn start_window_thread(shared_image: Arc<Mutex<ImageBuffer>>,
+                       render_options: &RenderOptions,
+                       close_condition: Arc<RwLock<bool>>)
+                       -> JoinHandle<()> {
+    let width = render_options.width;
+    let height = render_options.height;
+
+    thread::spawn(move || {
+        use piston_window::*;
+        let mut window: PistonWindow = WindowSettings::new("Raingun", (width, height))
+            .exit_on_esc(true)
+            .build()
+            .expect("Could not build PistonWindow");
+
+        let mut texture = {
+            let image = shared_image.lock().unwrap();
+            let texture_settings = TextureSettings::new();
+            Texture::from_image(&mut window.factory, &image, &texture_settings).unwrap()
+        };
+
+        while let Some(e) = window.next() {
+            // Don't block until we get a lock; instead just skip this frame update if mutex is busy.
+            if let Ok(image) = shared_image.try_lock() {
+                texture.update(&mut window.encoder, &image).unwrap();
+            }
+
+            window.draw_2d(&e, |context, graphics| {
+                clear([0.0, 0.0, 0.0, 1.0], graphics);
+                image(&texture, context.view, graphics);
+            });
+
+            if *close_condition.read().unwrap() {
+                window.set_should_close(true);
+                break;
+            }
+        }
+    })
+}
+
+fn start_collector_thread(channel_rx: Receiver<RenderedPixel>,
+                          shared_image: Arc<Mutex<ImageBuffer>>)
+                          -> JoinHandle<()> {
+    thread::spawn(move || {
+        // rustfmt has a bug when it formats this while loop. It can be solved by having this
+        // comment here.
+        // See this issue for details: https://github.com/rust-lang-nursery/rustfmt/issues/1467
+        loop {
+            let message = channel_rx.recv();
+            match message {
+                Ok(rendered_pixel) => {
+                    let mut image = shared_image.lock().unwrap();
+                    image.put_pixel(rendered_pixel.x,
+                                    rendered_pixel.y,
+                                    rendered_pixel.color.rgba());
+                }
+                Err(_) => {
+                    // Channel was closed, abort collector loop.
+                    break;
+                }
+            }
+        }
+    })
 }
 
 fn main() {
@@ -134,18 +301,22 @@ fn main() {
         scene
     };
 
-    let render_start = PreciseTime::now();
-    let image = scene.render(render_options.width, render_options.height);
-    let render_end = PreciseTime::now();
+    if matches.is_present("preview") {
+        render_image_with_preview(&scene, &render_options, &input_path, &output_path);
+    } else {
+        render_image_without_preview(&scene, &render_options, &input_path, &output_path);
+    }
+}
 
-    image.save(&output_path).expect("Could not encode image");
-    let write_end = PreciseTime::now();
-
+fn print_render_message(input_path: &Path,
+                        output_path: &Path,
+                        render_duration: Duration,
+                        write_duration: Duration) {
     println!("{input}\t→\t{output}\t({render_duration} render, {write_duration} write)",
              input = input_path.to_string_lossy(),
              output = output_path.to_string_lossy(),
-             render_duration = format_duration(render_start.to(render_end)),
-             write_duration = format_duration(render_end.to(write_end)));
+             render_duration = format_duration(render_duration),
+             write_duration = format_duration(write_duration));
 }
 
 fn format_duration(duration: Duration) -> String {
@@ -203,8 +374,8 @@ mod test {
     }
 
     #[test]
-    fn it_parses_preview_argument() {
-        let matches = parse_arguments(&["x", "--hd", "--width", "2000", "--preview", "file"]);
+    fn it_parses_draft_argument() {
+        let matches = parse_arguments(&["x", "--hd", "--width", "2000", "--draft", "file"]);
         let render_options = RenderOptions::from(&matches);
         assert_eq!(render_options.width, 800);
         assert_eq!(render_options.height, 600);

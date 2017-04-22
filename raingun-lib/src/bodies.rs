@@ -6,6 +6,10 @@ use cgmath::prelude::*;
 
 use std::f32::consts::PI;
 
+fn is_close(a: f64, b: f64) -> bool {
+    (a - b).abs() < 1e-8
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Sphere {
     pub center: Point3,
@@ -29,10 +33,17 @@ pub struct Disk {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct AABB {
+    pub bounds: [Point3; 2],
+    pub material: Material,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub enum Body {
     Sphere(Sphere),
     Plane(Plane),
     Disk(Disk),
+    AABB(AABB),
 }
 
 impl Body {
@@ -41,6 +52,7 @@ impl Body {
             Body::Sphere(ref sphere) => &sphere.material,
             Body::Plane(ref plane) => &plane.material,
             Body::Disk(ref disk) => &disk.material,
+            Body::AABB(ref aabb) => &aabb.material,
         }
     }
 
@@ -200,12 +212,134 @@ impl Intersectable for Disk {
     }
 }
 
+impl AABB {
+    // TODO: Can we precompute this somewhere?
+    pub fn width_x(&self) -> f64 {
+        self.bounds[1].x - self.bounds[0].x
+    }
+
+    // TODO: Can we precompute this somewhere?
+    pub fn width_y(&self) -> f64 {
+        self.bounds[1].y - self.bounds[0].y
+    }
+
+    // TODO: Can we precompute this somewhere?
+    pub fn width_z(&self) -> f64 {
+        self.bounds[1].z - self.bounds[0].z
+    }
+
+    // TODO: Can we precompute this somewhere?
+    pub fn center(&self) -> Point3 {
+        Point3 {
+            x: (self.bounds[0].x + self.width_x() / 2.0),
+            y: (self.bounds[0].y + self.width_y() / 2.0),
+            z: (self.bounds[0].z + self.width_z() / 2.0),
+        }
+    }
+}
+
+impl Intersectable for AABB {
+    fn intersect(&self, ray: &Ray) -> Option<f64> {
+        let mut tmin = (self.bounds[ray.x_sign()].x - ray.origin.x) * ray.inverted_direction.x;
+        let mut tmax = (self.bounds[1 - ray.x_sign()].x - ray.origin.x) * ray.inverted_direction.x;
+
+        let tymin = (self.bounds[ray.y_sign()].y - ray.origin.y) * ray.inverted_direction.y;
+        let tymax = (self.bounds[1 - ray.y_sign()].y - ray.origin.y) * ray.inverted_direction.y;
+
+        if tmin > tymax || tymin > tmax {
+            return None;
+        }
+
+        if tymin > tmin {
+            tmin = tymin;
+        }
+        if tymax < tmax {
+            tmax = tymax;
+        }
+
+        let tzmin = (self.bounds[ray.z_sign()].z - ray.origin.z) * ray.inverted_direction.z;
+        let tzmax = (self.bounds[1 - ray.z_sign()].z - ray.origin.z) * ray.inverted_direction.z;
+
+        if tmin > tzmax || tzmin > tmax {
+            return None;
+        }
+
+        if tzmin > tmin {
+            tmin = tzmin;
+        }
+
+        if tzmax < tmax {
+            tmax = tzmax;
+        }
+
+        if tmin >= 0.0 {
+            Some(tmin)
+        } else if tmax >= 0.0 {
+            Some(tmax)
+        } else {
+            None
+        }
+    }
+
+    fn surface_normal(&self, hit_point: &Point3) -> Vector3 {
+        /*
+        Determine the point of impact in relationship with the box, then calculate the axis with
+        the shortest distance from that point.
+
+        Imagine a 2D box with a hit point on one side. The point must be exactly on the boundary
+        somewhere. We can see which side it is by comparing the hit point to the box's corners.
+
+            y1            y1
+         x0 ┌─────────────┐ x1
+            │             │
+            │      C      │
+            │             │
+         x0 └───*─────────┘ x1
+           y0   ↓ N       y0
+
+            hit_x < x1
+            hit_x > x1
+            hit_y = y0
+            hit_y < y1
+
+        Since hit_y is = y0, then it must be on the lower X axis edge. We use the same principle in
+        3D.
+
+        Due to float errors, add a small factor to the comparisions.
+        */
+
+        if is_close(hit_point.x, self.bounds[0].x) {
+            -Vector3::unit_x()
+        } else if is_close(hit_point.x, self.bounds[1].x) {
+            Vector3::unit_x()
+        } else if is_close(hit_point.y, self.bounds[0].y) {
+            -Vector3::unit_y()
+        } else if is_close(hit_point.y, self.bounds[1].y) {
+            Vector3::unit_y()
+        } else if is_close(hit_point.z, self.bounds[0].z) {
+            -Vector3::unit_z()
+        } else if is_close(hit_point.z, self.bounds[1].z) {
+            Vector3::unit_z()
+        } else {
+            assert!(false, "Could not determine normal of point!");
+            // ¯\_(ツ)_/¯
+            Vector3::unit_x()
+        }
+    }
+
+    fn texture_coords(&self, _hit_point: &Point3) -> TextureCoords {
+        // TODO: Can we calculate this somehow?
+        TextureCoords { x: 0.0, y: 0.0 }
+    }
+}
+
 impl Intersectable for Body {
     fn intersect(&self, ray: &Ray) -> Option<f64> {
         match *self {
             Body::Sphere(ref sphere) => sphere.intersect(ray),
             Body::Plane(ref plane) => plane.intersect(ray),
             Body::Disk(ref disk) => disk.intersect(ray),
+            Body::AABB(ref aabb) => aabb.intersect(ray),
         }
     }
 
@@ -214,6 +348,7 @@ impl Intersectable for Body {
             Body::Sphere(ref sphere) => sphere.surface_normal(hit_point),
             Body::Plane(ref plane) => plane.surface_normal(hit_point),
             Body::Disk(ref disk) => disk.surface_normal(hit_point),
+            Body::AABB(ref aabb) => aabb.surface_normal(hit_point),
         }
     }
 
@@ -222,6 +357,7 @@ impl Intersectable for Body {
             Body::Sphere(ref sphere) => sphere.texture_coords(hit_point),
             Body::Plane(ref plane) => plane.texture_coords(hit_point),
             Body::Disk(ref disk) => disk.texture_coords(hit_point),
+            Body::AABB(ref aabb) => aabb.texture_coords(hit_point),
         }
     }
 }

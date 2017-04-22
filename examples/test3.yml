@@ -1,0 +1,55 @@
+---
+defaultColor: "#444444"
+lights:
+  - Directional:
+      direction:
+        x: 0.3
+        y: -0.8
+        z: -0.2
+      color: "#f7f7e0"
+      intensity: 9.0
+
+bodies:
+  - AABB:
+      # Elements in the first bound must be <= elements in the second one.
+      # This is valid:
+      #   - [1, 2, 3]
+      #   - [2, 3, 4]
+      # This is not:
+      #   - [1, 2, 3]
+      #   - [2, 3, 2]
+      bounds:
+        - [-1.0, -3.0, -7.0]
+        - [ 1.0, -1.0, -5.0]
+      material:
+        coloration:
+          Color: "#ffffff"
+        albedo: 0.7
+        surface:
+          Diffuse:
+
+  # Floor
+  - Plane:
+      origin: [0.0, -3.0, -6.0]
+      normal: [0.0, -1.0, 0.0]
+      material:
+        coloration:
+          Texture:
+            image: "textures/tile1/color.jpg"
+            x_offset: 0.0
+            y_offset: 0.0
+        albedo: 0.3
+        surface:
+          Reflecting:
+            reflectivity: 0.35
+
+  # Wall
+  - Plane:
+      origin: [0.0, 0.0, -10.0]
+      normal: [0.0, 0.0, -1.0]
+      material:
+        coloration:
+          Color: "#ffaa77"
+        albedo: 0.3
+        surface:
+          Diffuse:

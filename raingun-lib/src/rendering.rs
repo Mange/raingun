@@ -24,19 +24,16 @@ pub struct RenderedPixel {
 pub fn render_image(scene: &Scene, width: u32, height: u32) -> ImageBuffer<Rgba<u8>, Vec<u8>> {
     use rayon::prelude::*;
 
-    let raw_colors: Vec<Color> = (0u32..width * height)
+    let raw_image: Vec<u8> = (0u32..width * height)
         .into_par_iter()
         .map(|i| {
                  let y = i / width;
                  let x = i - y * width;
-                 render_pixel(scene, x, y, width, height)
+                 render_pixel(scene, x, y, width, height).rgba()
              })
+        .flat_map(|pixel| pixel.channels().to_owned())
         .collect();
 
-    let raw_image: Vec<u8> = raw_colors
-        .into_iter()
-        .flat_map(|c| c.rgba().channels().to_owned())
-        .collect();
     ImageBuffer::from_raw(width, height, raw_image).unwrap()
 }
 
@@ -94,16 +91,11 @@ fn get_color(scene: &Scene, ray: &Ray, intersection: &Intersection, depth: u32) 
             (diffuse_color * (1.0 - reflectivity)) +
             (cast_ray(scene, &reflection_ray, depth + 1) * reflectivity)
         }
-        Surface::Refractive {
-            index,
-            transparency,
-        } => {
+        Surface::Refractive { index, transparency } => {
             let refraction_color;
 
             let kr = fresnel(ray.direction, surface_normal, index) as f32;
-            let surface_color = material
-                .coloration
-                .color(&body.texture_coords(&hit_point));
+            let surface_color = material.coloration.color(&body.texture_coords(&hit_point));
 
             if kr < 1.0 {
                 let transmission_ray = Ray::create_transmission(surface_normal,
@@ -132,8 +124,7 @@ fn cast_ray(scene: &Scene, ray: &Ray, depth: u32) -> Color {
         scene.default_color
     } else {
         let intersection = scene.trace(&ray);
-        intersection
-            .map(|intersection| get_color(scene, &ray, &intersection, depth))
+        intersection.map(|intersection| get_color(scene, &ray, &intersection, depth))
             .unwrap_or(scene.default_color)
     }
 }
